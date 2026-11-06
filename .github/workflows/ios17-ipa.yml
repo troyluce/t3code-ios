@@ -1,88 +1,112 @@
-name: Build iOS 17 TrollStore IPA
+name: 构建简体中文 iOS 17 TrollStore IPA
 
 on:
   workflow_dispatch:
   push:
     paths:
       - '.github/workflows/ios17-ipa.yml'
+      - 'localization/zh-Hans.patch'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     runs-on: macos-15-intel
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          persist-credentials: false
-      - name: Adapt deployment target and timeline for iOS 17
+      - name: 应用中文源码并检查通信字段
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          from textwrap import indent
-
-          project = Path('T3 Code/T3 Code.xcodeproj/project.pbxproj')
-          text = project.read_text()
-          assert text.count('IPHONEOS_DEPLOYMENT_TARGET = 18.0;') == 2
-          project.write_text(text.replace('IPHONEOS_DEPLOYMENT_TARGET = 18.0;', 'IPHONEOS_DEPLOYMENT_TARGET = 17.0;'))
-
-          timeline = Path('T3 Code/T3 Code/Features/Thread/MessageTimelineView.swift')
-          text = timeline.read_text()
-          start = text.index('                .onScrollGeometryChange(for: Bool.self)')
-          end = text.index('                .onChange(of: rows.count)', start)
-          text = text[:start] + '                .coordinateSpace(name: "messageTimeline")\n' + text[end:]
-          marker = '                    .padding(.bottom, T3Spacing.xxl)\n'
-          assert text.count(marker) == 1
-          observer = [
-              '                    .onGeometryChange(for: Bool.self) { geometry in',
-              '                        geometry.frame(in: .named("messageTimeline")).maxY',
-              '                            - viewport.size.height <= stickyThreshold',
-              '                    } action: { near in',
-              '                        isNearBottom = near',
-              '                        if near { hasNewWhileScrolledUp = false }',
-              '                    }',
-          ]
-          text = text.replace(marker, marker + '\n'.join(observer) + '\n')
-          start = text.index('            ZStack(alignment: .bottomTrailing)')
-          end = text.index('\n        }\n    }\n\n    @ViewBuilder', start)
-          text = text[:start] + '            GeometryReader { viewport in\n' + indent(text[start:end], '    ') + '\n            }' + text[end:]
-          timeline.write_text(text)
-          PY
           mkdir -p build dist
-          git diff -- 'T3 Code' > dist/ios17-compatibility.patch
-      - name: Build arm64 app for iOS 17.0
+          if git apply --check localization/zh-Hans.patch; then
+            git apply localization/zh-Hans.patch
+          elif git apply --reverse --check localization/zh-Hans.patch; then
+            echo '中文源码已存在，直接构建。'
+          else
+            echo '中文补丁与当前源码不匹配。'
+            exit 1
+          fi
+          python3 - <<'PYCODE'
+          from collections import Counter
+          from pathlib import Path
+          import plistlib, re, subprocess
+          source = Path('T3 Code/T3 Code')
+          for path in (source / 'Core').rglob('*.swift'):
+              previous = subprocess.check_output(['git', 'show', f'HEAD:{path.as_posix()}'], text=True)
+              current = path.read_text()
+              patterns = [r'"((?:orchestration|server|vcs|git)\.[A-Za-z0-9_.]+)"', r'\["([A-Za-z][A-Za-z0-9_-]*)"\]', r'(?m)^\s*"([A-Za-z][A-Za-z0-9_-]*)"\s*:', r'case\s+"([A-Za-z0-9_.-]+)"']
+              for pattern in patterns:
+                  assert Counter(re.findall(pattern, previous)) == Counter(re.findall(pattern, current)), (path, pattern)
+          info = plistlib.loads(Path('T3 Code/Info.plist').read_bytes())
+          assert info['CFBundleDevelopmentRegion'] == 'zh-Hans'
+          assert info['CFBundleLocalizations'] == ['zh-Hans']
+          assert info['CFBundleDisplayName'] == 'T3 Code 中文'
+          assert '连接' in info['NSLocalNetworkUsageDescription']
+          assert '配对令牌' in (source / 'Features/Connection/ConnectionSetupView.swift').read_text()
+          assert '逐项审批' in (source / 'Features/Thread/ThreadView.swift').read_text()
+          print('中文文案、权限说明和通信字段检查通过。')
+          PYCODE
+          cp localization/zh-Hans.patch dist/chinese-source.patch
+      - name: 编译 iOS 17.0 arm64 应用
         run: |
           set -o pipefail
           xcodebuild -version
           xcodebuild -quiet \
             -project 'T3 Code/T3 Code.xcodeproj' \
-            -scheme 'T3 Code' \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
+            -scheme 'T3 Code' -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
             -derivedDataPath build/DerivedData \
-            IPHONEOS_DEPLOYMENT_TARGET=17.0 \
-            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            IPHONEOS_DEPLOYMENT_TARGET=17.0 ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY='' DEVELOPMENT_TEAM='' \
             build 2>&1 | tee build/build.log
-      - name: Verify and package TrollStore IPA
+      - name: 在模拟器启动中文界面并截图
+        run: |
+          set -o pipefail
+          T3_SIMULATOR_ID="$(python3 - <<'PYCODE'
+          import json, subprocess
+          data = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json']))
+          candidates = [(runtime, device) for runtime, devices in data['devices'].items() if '.iOS-18-' in runtime for device in devices if 'iPhone' in device['name'] and device.get('isAvailable')]
+          assert candidates, '缺少可用的 iOS 模拟器'
+          candidates.sort(key=lambda entry: (entry[0], entry[1]['name']), reverse=True)
+          print(candidates[0][1]['udid'])
+          PYCODE
+          )"
+          xcrun simctl boot "$T3_SIMULATOR_ID"
+          xcrun simctl bootstatus "$T3_SIMULATOR_ID" -b
+          xcodebuild -quiet \
+            -project 'T3 Code/T3 Code.xcodeproj' \
+            -scheme 'T3 Code' -configuration Release \
+            -sdk iphonesimulator -destination "id=$T3_SIMULATOR_ID" \
+            -derivedDataPath build/Simulator \
+            IPHONEOS_DEPLOYMENT_TARGET=17.0 ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY='' DEVELOPMENT_TEAM='' \
+            build 2>&1 | tee build/simulator-build.log
+          xcrun simctl install "$T3_SIMULATOR_ID" 'build/Simulator/Build/Products/Release-iphonesimulator/T3 Code.app'
+          xcrun simctl status_bar "$T3_SIMULATOR_ID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
+          xcrun simctl launch "$T3_SIMULATOR_ID" com.belweave.T3-Code -AppleLanguages '(zh-Hans)' -AppleLocale zh_CN
+          sleep 5
+          xcrun simctl io "$T3_SIMULATOR_ID" screenshot dist/chinese-interface.png
+      - name: 验证并打包 TrollStore IPA
         run: |
           mkdir -p build/package/Payload
           ditto 'build/DerivedData/Build/Products/Release-iphoneos/T3 Code.app' 'build/package/Payload/T3 Code.app'
           codesign --force --sign - 'build/package/Payload/T3 Code.app'
           codesign --verify --deep --strict 'build/package/Payload/T3 Code.app'
-          python3 - <<'PY'
+          python3 - <<'PYCODE'
           from pathlib import Path
           import plistlib, struct
           app = Path('build/package/Payload/T3 Code.app')
           info = plistlib.loads((app / 'Info.plist').read_bytes())
-          assert info['MinimumOSVersion'] == '17.0', info
+          assert info['MinimumOSVersion'] == '17.0'
           assert info['CFBundleIdentifier'] == 'com.belweave.T3-Code'
+          assert info['CFBundleVersion'] == '2'
+          assert info['CFBundleDevelopmentRegion'] == 'zh-Hans'
+          assert info['CFBundleLocalizations'] == ['zh-Hans']
+          assert info['CFBundleDisplayName'] == 'T3 Code 中文'
           binary = (app / info['CFBundleExecutable']).read_bytes()
           magic, cpu, subtype, kind, count, size, flags, reserved = struct.unpack_from('<8I', binary)
           assert magic == 0xfeedfacf and cpu == 0x100000c and kind == 2
@@ -95,26 +119,37 @@ jobs:
                   assert platform == 2 and minimum == 17 << 16, (platform, minimum)
                   verified = True
               offset += length
-          assert verified, 'Missing iOS Mach-O build version'
-          report = f"Bundle: {info['CFBundleIdentifier']}\nVersion: {info['CFBundleShortVersionString']}\nMinimum iOS: {info['MinimumOSVersion']}\nArchitecture: arm64\nInstallation: TrollStore\nSignature: ad hoc; TrollStore signs during installation\n"
+          assert verified
+          report = f"应用：{info['CFBundleDisplayName']}\n版本：{info['CFBundleShortVersionString']}（构建 {info['CFBundleVersion']}）\n最低 iOS：{info['MinimumOSVersion']}\n架构：arm64\n语言：简体中文\n安装方式：TrollStore\nBundle ID：{info['CFBundleIdentifier']}\n"
           Path('dist/build-info.txt').write_text(report)
           print(report)
-          PY
-          (cd build/package && ditto -c -k --keepParent Payload ../../dist/T3Code-iOS17-TrollStore.ipa)
-          unzip -t dist/T3Code-iOS17-TrollStore.ipa
-          shasum -a 256 dist/T3Code-iOS17-TrollStore.ipa > dist/SHA256SUMS.txt
-      - name: Upload IPA and compatibility patch
+          PYCODE
+          (cd build/package && ditto -c -k --keepParent Payload ../../dist/T3Code-iOS17-zh-Hans-TrollStore.ipa)
+          unzip -t dist/T3Code-iOS17-zh-Hans-TrollStore.ipa
+          shasum -a 256 dist/T3Code-iOS17-zh-Hans-TrollStore.ipa > dist/SHA256SUMS.txt
+      - name: 将验证通过的中文源码提交到当前仓库
+        run: |
+          if ! git diff --quiet -- 'T3 Code' || test -n "$(git ls-files --others --exclude-standard -- 'T3 Code')"; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -- 'T3 Code'
+            git commit -m '将 iOS 客户端界面本地化为简体中文，支持 iOS 17.0'
+            git push origin HEAD:main
+          fi
+          git rev-parse HEAD > dist/source-commit.txt
+          git archive --format=zip --output=dist/T3Code-Chinese-Source.zip HEAD -- 'T3 Code'
+      - name: 上传中文版 IPA、源码和界面截图
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: T3Code-iOS17-TrollStore
+          name: T3Code-iOS17-zh-Hans-TrollStore
           path: dist/
           if-no-files-found: error
           retention-days: 30
-      - name: Upload build log
+      - name: 保存编译日志
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: build-log
-          path: build/build.log
+          name: chinese-build-log
+          path: build/*.log
           if-no-files-found: ignore
           retention-days: 7
