@@ -1,0 +1,2590 @@
+--- a/T3 Code/Info.plist
++++ b/T3 Code/Info.plist
+@@ -2,60 +2,64 @@
+ <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+ <plist version="1.0">
+ <dict>
+-    <key>CFBundleDevelopmentRegion</key>
+-    <string>en</string>
+-    <key>CFBundleExecutable</key>
+-    <string>$(PRODUCT_NAME)</string>
+-    <key>CFBundleIdentifier</key>
+-    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+-    <key>CFBundleInfoDictionaryVersion</key>
+-    <string>6.0</string>
+-    <key>CFBundleName</key>
+-    <string>$(PRODUCT_NAME)</string>
+-    <key>CFBundleDisplayName</key>
+-    <string>$(PRODUCT_NAME)</string>
+-    <key>CFBundlePackageType</key>
+-    <string>APPL</string>
+-    <key>CFBundleShortVersionString</key>
+-    <string>$(MARKETING_VERSION)</string>
+-    <key>CFBundleVersion</key>
+-    <string>$(CURRENT_PROJECT_VERSION)</string>
+-    <key>LSRequiresIPhoneOS</key>
+-    <true/>
+-    <key>UILaunchScreen</key>
+-    <dict/>
+-    <key>UIApplicationSceneManifest</key>
+-    <dict>
+-        <key>UIApplicationSupportsMultipleScenes</key>
+-        <true/>
+-    </dict>
+-    <key>UIApplicationSupportsIndirectInputEvents</key>
+-    <true/>
+-    <key>UISupportedInterfaceOrientations</key>
+-    <array>
+-        <string>UIInterfaceOrientationPortrait</string>
+-        <string>UIInterfaceOrientationLandscapeLeft</string>
+-        <string>UIInterfaceOrientationLandscapeRight</string>
+-    </array>
+-    <key>UISupportedInterfaceOrientations~ipad</key>
+-    <array>
+-        <string>UIInterfaceOrientationPortrait</string>
+-        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+-        <string>UIInterfaceOrientationLandscapeLeft</string>
+-        <string>UIInterfaceOrientationLandscapeRight</string>
+-    </array>
+-    <key>NSPhotoLibraryUsageDescription</key>
+-    <string>Attach images to messages you send to T3 Code.</string>
+-    <key>NSLocalNetworkUsageDescription</key>
+-    <string>T3 Code connects to your T3 Code server on the local network or Tailscale.</string>
+-    <key>NSAppTransportSecurity</key>
+-    <dict>
+-        <key>NSAllowsArbitraryLoads</key>
+-        <true/>
+-        <key>NSAllowsLocalNetworking</key>
+-        <true/>
+-    </dict>
+-    <key>ITSAppUsesNonExemptEncryption</key>
+-    <false/>
++	<key>CFBundleDevelopmentRegion</key>
++	<string>zh-Hans</string>
++	<key>CFBundleExecutable</key>
++	<string>$(PRODUCT_NAME)</string>
++	<key>CFBundleIdentifier</key>
++	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
++	<key>CFBundleInfoDictionaryVersion</key>
++	<string>6.0</string>
++	<key>CFBundleName</key>
++	<string>$(PRODUCT_NAME)</string>
++	<key>CFBundleDisplayName</key>
++	<string>T3 Code 中文</string>
++	<key>CFBundlePackageType</key>
++	<string>APPL</string>
++	<key>CFBundleShortVersionString</key>
++	<string>$(MARKETING_VERSION)</string>
++	<key>CFBundleVersion</key>
++	<string>$(CURRENT_PROJECT_VERSION)</string>
++	<key>LSRequiresIPhoneOS</key>
++	<true/>
++	<key>UILaunchScreen</key>
++	<dict/>
++	<key>UIApplicationSceneManifest</key>
++	<dict>
++		<key>UIApplicationSupportsMultipleScenes</key>
++		<true/>
++	</dict>
++	<key>UIApplicationSupportsIndirectInputEvents</key>
++	<true/>
++	<key>UISupportedInterfaceOrientations</key>
++	<array>
++		<string>UIInterfaceOrientationPortrait</string>
++		<string>UIInterfaceOrientationLandscapeLeft</string>
++		<string>UIInterfaceOrientationLandscapeRight</string>
++	</array>
++	<key>UISupportedInterfaceOrientations~ipad</key>
++	<array>
++		<string>UIInterfaceOrientationPortrait</string>
++		<string>UIInterfaceOrientationPortraitUpsideDown</string>
++		<string>UIInterfaceOrientationLandscapeLeft</string>
++		<string>UIInterfaceOrientationLandscapeRight</string>
++	</array>
++	<key>NSPhotoLibraryUsageDescription</key>
++	<string>选择照片并发送给 T3 Code。</string>
++	<key>NSLocalNetworkUsageDescription</key>
++	<string>连接局域网或 Tailscale 中的 T3 Code 服务器。</string>
++	<key>NSAppTransportSecurity</key>
++	<dict>
++		<key>NSAllowsArbitraryLoads</key>
++		<true/>
++		<key>NSAllowsLocalNetworking</key>
++		<true/>
++	</dict>
++	<key>ITSAppUsesNonExemptEncryption</key>
++	<false/>
++	<key>CFBundleLocalizations</key>
++	<array>
++		<string>zh-Hans</string>
++	</array>
+ </dict>
+ </plist>
+--- a/T3 Code/T3 Code/App/AppEnvironment.swift
++++ b/T3 Code/T3 Code/App/AppEnvironment.swift
+@@ -180,7 +180,7 @@
+             }
+         } catch {
+             await MainActor.run {
+-                self.serverConfigError = error.localizedDescription
++                self.serverConfigError = ChineseLocalization.errorDescription(error)
+             }
+         }
+     }
+--- a/T3 Code/T3 Code/App/AppPreferences.swift
++++ b/T3 Code/T3 Code/App/AppPreferences.swift
+@@ -8,9 +8,9 @@
+ 
+     var label: String {
+         switch self {
+-        case .system: "System"
+-        case .light: "Light"
+-        case .dark: "Dark"
++        case .system: "跟随系统"
++        case .light: "浅色"
++        case .dark: "深色"
+         }
+     }
+ 
+@@ -30,10 +30,10 @@
+ 
+     var label: String {
+         switch self {
+-        case .blue: "Blue"
+-        case .violet: "Violet"
+-        case .green: "Green"
+-        case .orange: "Orange"
++        case .blue: "蓝色"
++        case .violet: "紫色"
++        case .green: "绿色"
++        case .orange: "橙色"
+         }
+     }
+ 
+@@ -66,8 +66,8 @@
+ 
+     var label: String {
+         switch self {
+-        case .compact: "Compact"
+-        case .comfortable: "Comfort"
++        case .compact: "紧凑"
++        case .comfortable: "舒适"
+         }
+     }
+ }
+@@ -79,9 +79,9 @@
+ 
+     var label: String {
+         switch self {
+-        case .compact: "Compact"
+-        case .comfortable: "Comfort"
+-        case .expanded: "Expanded"
++        case .compact: "紧凑"
++        case .comfortable: "舒适"
++        case .expanded: "加高"
+         }
+     }
+ 
+--- /dev/null
++++ b/T3 Code/T3 Code/App/ChineseLocalization.swift
+@@ -0,0 +1,41 @@
++import Foundation
++
++enum ChineseLocalization {
++    static let locale = Locale(identifier: "zh_Hans_CN")
++
++    static func errorDescription(_ error: Error) -> String {
++        if error is DecodingError {
++            return "无法解析服务器响应，请检查客户端与服务器版本是否匹配。"
++        }
++        let details = error as NSError
++        guard details.domain == NSURLErrorDomain else {
++            return error.localizedDescription
++        }
++        switch details.code {
++        case NSURLErrorNotConnectedToInternet:
++            return "网络未连接，请检查网络设置。"
++        case NSURLErrorTimedOut:
++            return "连接超时，请检查服务器地址和网络后重试。"
++        case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed:
++            return "找不到服务器，请检查服务器地址。"
++        case NSURLErrorCannotConnectToHost:
++            return "无法连接服务器，请确认桌面端已启动并开启网络访问。"
++        case NSURLErrorNetworkConnectionLost:
++            return "网络连接已中断，请重新连接。"
++        case NSURLErrorSecureConnectionFailed,
++             NSURLErrorServerCertificateHasBadDate,
++             NSURLErrorServerCertificateUntrusted,
++             NSURLErrorServerCertificateHasUnknownRoot,
++             NSURLErrorServerCertificateNotYetValid:
++            return "无法建立安全连接，请检查服务器的 HTTPS 证书。"
++        case NSURLErrorBadURL, NSURLErrorUnsupportedURL:
++            return "服务器地址格式无效，请使用 HTTP 或 HTTPS 地址。"
++        case NSURLErrorUserAuthenticationRequired:
++            return "服务器要求身份认证，请重新配对。"
++        case NSURLErrorCancelled:
++            return "操作已取消。"
++        default:
++            return "网络请求失败（错误代码 \(details.code)）。"
++        }
++    }
++}
+--- a/T3 Code/T3 Code/App/MainTabView.swift
++++ b/T3 Code/T3 Code/App/MainTabView.swift
+@@ -13,13 +13,13 @@
+         let tabs = TabView(selection: $selectedTab) {
+             ThreadsListView()
+                 .tabItem {
+-                    Label("Chat", systemImage: "bubble.left.and.bubble.right")
++                    Label("聊天", systemImage: "bubble.left.and.bubble.right")
+                 }
+                 .tag(Tab.threads)
+ 
+             SettingsTabView()
+                 .tabItem {
+-                    Label("Settings", systemImage: "gearshape")
++                    Label("设置", systemImage: "gearshape")
+                 }
+                 .tag(Tab.settings)
+         }
+--- a/T3 Code/T3 Code/Core/Models/Activity.swift
++++ b/T3 Code/T3 Code/Core/Models/Activity.swift
+@@ -19,9 +19,9 @@
+ 
+     var displayLabel: String {
+         switch self {
+-        case .command: "Run command"
+-        case .fileRead: "Read file"
+-        case .fileChange: "Change files"
++        case .command: "执行命令"
++        case .fileRead: "读取文件"
++        case .fileChange: "修改文件"
+         }
+     }
+ 
+@@ -42,10 +42,10 @@
+ 
+     var label: String {
+         switch self {
+-        case .accept: "Accept"
+-        case .acceptForSession: "Accept for session"
+-        case .decline: "Decline"
+-        case .cancel: "Cancel"
++        case .accept: "允许"
++        case .acceptForSession: "本次会话始终允许"
++        case .decline: "拒绝"
++        case .cancel: "取消"
+         }
+     }
+ }
+--- a/T3 Code/T3 Code/Core/Models/ServerConfig.swift
++++ b/T3 Code/T3 Code/Core/Models/ServerConfig.swift
+@@ -137,8 +137,8 @@
+         switch self {
+         case .zen: return "Zen"
+         case .go: return "Go"
+-        case .standard: return "Standard routing"
+-        case .other: return "Other"
++        case .standard: return "标准路由"
++        case .other: return "其他"
+         }
+     }
+ 
+@@ -387,7 +387,7 @@
+                     items.sort {
+                         $0.model.label.localizedCaseInsensitiveCompare($1.model.label) == .orderedAscending
+                     }
+-                    let label = key == "__none__" ? "Other" : key
++                    let label = key == "__none__" ? "其他" : key
+                     let suffix: String? = shouldShowSuffix ? label : nil
+                     let sid = "\(p.instanceId.rawValue)|\(key)"
+                     sections.append(ModelCatalogSection(
+--- a/T3 Code/T3 Code/Core/Networking/Auth/PairingFlow.swift
++++ b/T3 Code/T3 Code/Core/Networking/Auth/PairingFlow.swift
+@@ -16,15 +16,15 @@
+         request.timeoutInterval = 10
+         let (data, response) = try await URLSession.shared.data(for: request)
+         guard let http = response as? HTTPURLResponse else {
+-            throw T3Error.pairingFailed("No response from server")
++            throw T3Error.pairingFailed("服务器没有响应")
+         }
+         guard http.statusCode == 200 else {
+             throw T3Error.pairingFailed(
+-                "Environment request failed with status \(http.statusCode): \(errorMessage(from: data))"
++                "获取服务器环境失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
+             )
+         }
+         guard let descriptor = EnvironmentDescriptor.decodeLenient(data) else {
+-            throw T3Error.pairingFailed("Invalid environment descriptor")
++            throw T3Error.pairingFailed("服务器环境信息无效")
+         }
+         return descriptor
+     }
+@@ -40,14 +40,14 @@
+ 
+         let (data, response) = try await URLSession.shared.data(for: request)
+         guard let http = response as? HTTPURLResponse else {
+-            throw T3Error.pairingFailed("No response from server")
++            throw T3Error.pairingFailed("服务器没有响应")
+         }
+         if http.statusCode == 401 || http.statusCode == 403 {
+-            throw T3Error.pairingFailed("Pairing token rejected: \(errorMessage(from: data))")
++            throw T3Error.pairingFailed("配对令牌被拒绝：\(errorMessage(from: data))")
+         }
+         guard (200...299).contains(http.statusCode) else {
+             throw T3Error.pairingFailed(
+-                "Pairing failed with status \(http.statusCode): \(errorMessage(from: data))"
++                "配对失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
+             )
+         }
+ 
+@@ -58,7 +58,7 @@
+             }
+         }
+ 
+-        throw T3Error.pairingFailed("Pairing response did not include a bearer session token")
++        throw T3Error.pairingFailed("配对响应中缺少登录令牌")
+     }
+ 
+     static func issueWebSocketToken(serverURL: URL, bearerToken: String) async throws -> WebSocketToken {
+@@ -70,17 +70,17 @@
+ 
+         let (data, response) = try await URLSession.shared.data(for: request)
+         guard let http = response as? HTTPURLResponse else {
+-            throw T3Error.pairingFailed("No response from server")
++            throw T3Error.pairingFailed("服务器没有响应")
+         }
+         guard (200...299).contains(http.statusCode) else {
+             throw T3Error.pairingFailed(
+-                "WebSocket token request failed with status \(http.statusCode): \(errorMessage(from: data))"
++                "获取 WebSocket 令牌失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
+             )
+         }
+         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let token = json["token"] as? String,
+               !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+-            throw T3Error.pairingFailed("WebSocket token response was invalid")
++            throw T3Error.pairingFailed("WebSocket 令牌响应无效")
+         }
+         return WebSocketToken(token: token)
+     }
+@@ -144,6 +144,6 @@
+            !text.isEmpty {
+             return text
+         }
+-        return "empty response"
++        return "响应为空"
+     }
+ }
+--- a/T3 Code/T3 Code/Core/Networking/EffectRPC.swift
++++ b/T3 Code/T3 Code/Core/Networking/EffectRPC.swift
+@@ -96,16 +96,16 @@
+                 let cause = exit["cause"] as? [String: Any] ?? [:]
+                 let errorMessage = (cause["error"] as? [String: Any])?["message"] as? String
+                     ?? (cause["defect"] as? String)
+-                    ?? "Server error"
++                    ?? "服务器错误"
+                 let errorTag = (cause["error"] as? [String: Any])?["_tag"] as? String
+                 return .exit(requestId: id, success: false, value: nil,
+                              errorTag: errorTag, errorMessage: errorMessage)
+             }
+         case "Defect":
+-            let message = (dict["defect"] as? String) ?? "Unknown server defect"
++            let message = (dict["defect"] as? String) ?? "未知服务器错误"
+             return .defect(message: message)
+         case "ClientProtocolError":
+-            let message = (dict["error"] as? String) ?? "Client protocol error"
++            let message = (dict["error"] as? String) ?? "客户端协议错误"
+             return .defect(message: message)
+         default:
+             return .unknown(json: any)
+--- a/T3 Code/T3 Code/Core/Networking/T3Client.swift
++++ b/T3 Code/T3 Code/Core/Networking/T3Client.swift
+@@ -286,7 +286,7 @@
+     func getServerConfig() async throws -> ServerRuntimeConfig {
+         let value = try await request(method: "server.getConfig", payload: [String: Any]())
+         guard let value else {
+-            throw T3Error.decodingFailed("Server returned an empty config response")
++            throw T3Error.decodingFailed("服务器返回的配置信息为空")
+         }
+         let data = try JSONSerialization.data(withJSONObject: value)
+         return try JSONDecoder().decode(ServerRuntimeConfig.self, from: data)
+@@ -453,9 +453,9 @@
+         if !trimmed.isEmpty {
+             seed = trimmed
+         } else if let first = attachments.first {
+-            seed = "Image: \(first.name)"
++            seed = "图片：\(first.name)"
+         } else {
+-            seed = "New thread"
++            seed = "新会话"
+         }
+         if seed.count <= 80 {
+             return seed
+@@ -468,7 +468,7 @@
+     func refreshVcsStatus(cwd: String) async throws -> VcsStatusSummary {
+         let payload: [String: Any] = ["cwd": cwd]
+         guard let value = try await request(method: "vcs.refreshStatus", payload: payload) else {
+-            throw T3Error.decodingFailed("Empty vcs.refreshStatus response")
++            throw T3Error.decodingFailed("Git 状态响应为空")
+         }
+         return try VcsStatusSummary.decode(from: value)
+     }
+@@ -476,7 +476,7 @@
+     func vcsPull(cwd: String) async throws -> VcsPullSummary {
+         let payload: [String: Any] = ["cwd": cwd]
+         guard let value = try await request(method: "vcs.pull", payload: payload) else {
+-            throw T3Error.decodingFailed("Empty vcs.pull response")
++            throw T3Error.decodingFailed("Git 拉取响应为空")
+         }
+         return try VcsPullSummary.decode(from: value)
+     }
+@@ -519,11 +519,11 @@
+                         case "action_finished":
+                             let result = (dict["result"] as? [String: Any]) ?? [:]
+                             let toast = (result["toast"] as? [String: Any]) ?? [:]
+-                            let title = (toast["title"] as? String) ?? "Action completed"
++                            let title = (toast["title"] as? String) ?? "操作完成"
+                             let description = toast["description"] as? String
+                             resumeOnce(.success(.init(toastTitle: title, toastDescription: description)))
+                         case "action_failed":
+-                            let message = (dict["message"] as? String) ?? "Git action failed."
++                            let message = (dict["message"] as? String) ?? "Git 操作失败。"
+                             resumeOnce(.failure(T3Error.requestFailed(message)))
+                         default:
+                             break
+@@ -533,7 +533,7 @@
+                     Task.detached {
+                         try? await Task.sleep(nanoseconds: 120_000_000_000)
+                         await subscription.cancel()
+-                        resumeOnce(.failure(T3Error.requestFailed("Git action timed out.")))
++                        resumeOnce(.failure(T3Error.requestFailed("Git 操作超时。")))
+                     }
+                 } catch {
+                     resumeOnce(.failure(error))
+--- a/T3 Code/T3 Code/Core/Networking/T3Connection.swift
++++ b/T3 Code/T3 Code/Core/Networking/T3Connection.swift
+@@ -79,7 +79,7 @@
+         statusContinuation?.yield(.connecting)
+ 
+         guard var wsURL = makeWebSocketURL() else {
+-            statusContinuation?.yield(.error("Invalid server URL"))
++            statusContinuation?.yield(.error("服务器地址无效"))
+             scheduleReconnect()
+             return false
+         }
+@@ -178,7 +178,7 @@
+         for message in messages {
+             let data = try EffectRPCEncoder.encode(message)
+             guard let text = String(data: data, encoding: .utf8) else {
+-                throw T3Error.requestFailed("Failed to encode RPC message")
++                throw T3Error.requestFailed("RPC 消息编码失败")
+             }
+             try await task.send(.string(text))
+         }
+@@ -262,9 +262,9 @@
+ 
+     private func formatConnectionError(_ error: Error) -> String {
+         let nsError = error as NSError
+-        var message = error.localizedDescription
++        var message = ChineseLocalization.errorDescription(error)
+         if message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+-            message = "Connection failed"
++            message = "连接失败"
+         }
+         return "\(message) (\(nsError.domain) \(nsError.code))"
+     }
+@@ -285,11 +285,11 @@
+     private func formatCloseCode(_ code: URLSessionWebSocketTask.CloseCode) -> String {
+         switch code {
+         case .noStatusReceived:
+-            return "server closed without a WebSocket close status"
++            return "服务器关闭连接时未提供 WebSocket 状态"
+         case .abnormalClosure:
+-            return "abnormal WebSocket closure"
++            return "WebSocket 连接异常关闭"
+         default:
+-            return "close code \(code.rawValue)"
++            return "关闭代码 \(code.rawValue)"
+         }
+     }
+ }
+@@ -307,7 +307,7 @@
+             try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+             self?.completeOpenWait(
+                 taskID: taskID,
+-                result: .failure(T3Error.requestFailed("Timed out waiting for WebSocket connection"))
++                result: .failure(T3Error.requestFailed("等待 WebSocket 连接超时"))
+             )
+         }
+         defer { timeoutTask.cancel() }
+@@ -353,7 +353,7 @@
+         guard !wasOpened else { return }
+         completeOpenWait(
+             taskID: taskID,
+-            result: .failure(T3Error.requestFailed("WebSocket closed before opening"))
++            result: .failure(T3Error.requestFailed("WebSocket 在建立连接前已关闭"))
+         )
+     }
+ 
+@@ -392,11 +392,11 @@
+ 
+     var errorDescription: String? {
+         switch self {
+-        case .notConnected: "Not connected to T3 server"
+-        case .invalidServerURL: "Invalid server URL"
+-        case .pairingFailed(let msg): "Pairing failed: \(msg)"
+-        case .requestFailed(let msg): "Request failed: \(msg)"
+-        case .decodingFailed(let msg): "Failed to decode response: \(msg)"
++        case .notConnected: "尚未连接 T3 服务器"
++        case .invalidServerURL: "服务器地址无效"
++        case .pairingFailed(let msg): "配对失败：\(msg)"
++        case .requestFailed(let msg): "请求失败：\(msg)"
++        case .decodingFailed(let msg): "解析响应失败：\(msg)"
+         }
+     }
+ }
+--- a/T3 Code/T3 Code/Core/Stores/ThreadStore.swift
++++ b/T3 Code/T3 Code/Core/Stores/ThreadStore.swift
+@@ -83,7 +83,7 @@
+ 
+         let resolvedSelection = detail?.modelSelection ?? fallbackModelSelection
+         guard let modelSelection = resolvedSelection else {
+-            await MainActor.run { self.lastError = "No model selected" }
++            await MainActor.run { self.lastError = "尚未选择模型" }
+             return
+         }
+ 
+@@ -100,7 +100,7 @@
+                 interactionMode: detail?.interactionMode ?? .default
+             )
+         } catch {
+-            await MainActor.run { self.lastError = error.localizedDescription }
++            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
+         }
+     }
+ 
+@@ -110,7 +110,7 @@
+             try await client.interruptTurn(threadId: threadId,
+                                            turnId: detail?.latestTurn?.turnId)
+         } catch {
+-            await MainActor.run { self.lastError = error.localizedDescription }
++            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
+         }
+     }
+ 
+@@ -124,7 +124,7 @@
+                                              requestId: approval.requestId,
+                                              decision: decision)
+         } catch {
+-            await MainActor.run { self.lastError = error.localizedDescription }
++            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
+         }
+     }
+ 
+@@ -139,7 +139,7 @@
+                                               requestId: input.requestId,
+                                               answers: answers)
+         } catch {
+-            await MainActor.run { self.lastError = error.localizedDescription }
++            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
+         }
+     }
+ 
+@@ -148,7 +148,7 @@
+         do {
+             try await client.setInteractionMode(threadId: threadId, mode: mode)
+         } catch {
+-            await MainActor.run { self.lastError = error.localizedDescription }
++            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
+         }
+     }
+ 
+@@ -157,7 +157,7 @@
+         do {
+             try await client.setRuntimeMode(threadId: threadId, mode: mode)
+         } catch {
+-            await MainActor.run { self.lastError = error.localizedDescription }
++            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
+         }
+     }
+ 
+@@ -173,7 +173,7 @@
+             try await client.updateThreadModelSelection(threadId: threadId,
+                                                         modelSelection: selection)
+         } catch {
+-            await MainActor.run { self.lastError = error.localizedDescription }
++            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
+         }
+     }
+ 
+@@ -189,7 +189,7 @@
+                 interactionMode: .default
+             )
+         } catch {
+-            await MainActor.run { self.lastError = error.localizedDescription }
++            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
+         }
+     }
+ 
+--- a/T3 Code/T3 Code/DesignSystem/Components/ConnectionPill.swift
++++ b/T3 Code/T3 Code/DesignSystem/Components/ConnectionPill.swift
+@@ -8,10 +8,10 @@
+ 
+     var label: String {
+         switch self {
+-        case .offline:    "Offline"
+-        case .connecting: "Connecting"
+-        case .connected:  "Connected"
+-        case .error:      "Error"
++        case .offline:    "离线"
++        case .connecting: "连接中"
++        case .connected:  "已连接"
++        case .error:      "错误"
+         }
+     }
+ 
+@@ -27,7 +27,7 @@
+     var detail: String? {
+         switch self {
+         case .error(let message):
+-            message.isEmpty ? "Unknown connection error" : message
++            message.isEmpty ? "未知连接错误" : message
+         default:
+             nil
+         }
+--- a/T3 Code/T3 Code/DesignSystem/Components/MessageBubble.swift
++++ b/T3 Code/T3 Code/DesignSystem/Components/MessageBubble.swift
+@@ -82,9 +82,9 @@
+ 
+     private var roleLabel: String {
+         switch role {
+-        case .system: "SYSTEM"
++        case .system: "系统"
+         case .assistant: "T3 CODE"
+-        case .user: "YOU"
++        case .user: "你"
+         }
+     }
+ 
+--- a/T3 Code/T3 Code/DesignSystem/Components/ModelPickerSheet.swift
++++ b/T3 Code/T3 Code/DesignSystem/Components/ModelPickerSheet.swift
+@@ -32,11 +32,11 @@
+                 modelList
+             }
+             .background(T3Color.surfaceGrouped)
+-            .navigationTitle("Model")
++            .navigationTitle("模型")
+             .navigationBarTitleDisplayMode(.inline)
+             .toolbar {
+                 ToolbarItem(placement: .topBarTrailing) {
+-                    Button("Done") { dismiss() }
++                    Button("完成") { dismiss() }
+                         .fontWeight(.medium)
+                 }
+             }
+@@ -149,7 +149,7 @@
+             Image(systemName: "sparkles")
+                 .font(.largeTitle)
+                 .foregroundStyle(T3Color.textTertiary)
+-            Text("No models available")
++            Text("暂无可用模型")
+                 .font(T3Typography.callout)
+                 .foregroundStyle(T3Color.textSecondary)
+         }
+--- a/T3 Code/T3 Code/DesignSystem/T3Style.swift
++++ b/T3 Code/T3 Code/DesignSystem/T3Style.swift
+@@ -105,7 +105,7 @@
+                 .font(.system(size: size, weight: .regular))
+                 .foregroundStyle(T3Color.textPrimary)
+             if showsAlpha {
+-                Text("ALPHA")
++                Text("预览版")
+                     .font(.system(size: max(9, size - 7), weight: .semibold))
+                     .foregroundStyle(T3Color.textTertiary)
+                     .tracking(0.4)
+--- a/T3 Code/T3 Code/Features/Connection/ConnectionSetupView.swift
++++ b/T3 Code/T3 Code/Features/Connection/ConnectionSetupView.swift
+@@ -44,17 +44,17 @@
+         HStack {
+             T3WordmarkLabel()
+             Spacer()
+-            T3Style.Pill(text: "Pair", systemImage: "link",
++            T3Style.Pill(text: "配对", systemImage: "link",
+                          tint: T3Color.warning, emphasized: true)
+         }
+     }
+ 
+     private var heroBlock: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            Text("Pair this iPhone with a T3 Code server.")
++            Text("将此 iPhone 与 T3 Code 服务器配对。")
+                 .font(T3Typography.title)
+                 .foregroundStyle(T3Color.textPrimary)
+-            Text("Open the desktop app → Settings → Connections → Network access. Copy the pairing URL (HTTPS if you use a tunnel like Cloudflare) or enter the server URL and token separately.")
++            Text("打开桌面端的 Settings（设置）→ Connections（连接）→ Network access（网络访问），复制配对链接；也可以分别输入服务器地址和配对令牌。使用 Cloudflare 等隧道时，请使用 HTTPS 地址。")
+                 .font(T3Typography.callout)
+                 .foregroundStyle(T3Color.textSecondary)
+         }
+@@ -62,10 +62,10 @@
+ 
+     private var formCard: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Server")
++            T3Style.SectionHeader(title: "服务器")
+             T3Style.Card {
+                 VStack(alignment: .leading, spacing: T3Spacing.md) {
+-                    fieldGroup(label: "Server URL") {
++                    fieldGroup(label: "服务器地址") {
+                         TextField("https://t3code-review.belweave.com", text: $serverURL)
+                             .textInputAutocapitalization(.never)
+                             .autocorrectionDisabled()
+@@ -74,12 +74,12 @@
+                             .focused($focused, equals: .url)
+                     }
+ 
+-                    fieldGroup(label: "Pairing token", trailing: AnyView(
+-                        Button("Paste link") { pastePairingLink() }
++                    fieldGroup(label: "配对令牌", trailing: AnyView(
++                        Button("粘贴配对链接") { pastePairingLink() }
+                             .font(T3Typography.footnote)
+                             .foregroundStyle(T3Color.primary)
+                     )) {
+-                        TextField("PAIRCODE", text: $pairingToken)
++                        TextField("输入配对令牌", text: $pairingToken)
+                             .textInputAutocapitalization(.never)
+                             .autocorrectionDisabled()
+                             .font(T3Typography.body)
+@@ -93,7 +93,7 @@
+                     }
+ 
+                     HStack {
+-                        T3ToolbarButton(title: "Connect",
++                        T3ToolbarButton(title: "连接",
+                                         systemImage: "link",
+                                         isLoading: isWorking,
+                                         isEnabled: canConnect) {
+@@ -134,12 +134,12 @@
+ 
+     private var helpCard: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Tips")
++            T3Style.SectionHeader(title: "使用提示")
+             T3Style.Card {
+                 VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-                    tipRow("Public HTTPS URLs (e.g. Cloudflare Tunnel) work: the app uses WSS for the live socket.")
+-                    tipRow("Use Tailscale or LAN when you are not using a tunnel — the phone still needs a route to the server.")
+-                    tipRow("Pairing tokens are one-time. After exchange, the iPhone keeps a session.")
++                    tipRow("支持 Cloudflare Tunnel 等公网 HTTPS 地址，实时连接通过 WSS 建立。")
++                    tipRow("也可以通过 Tailscale 或局域网连接，请确保手机能够访问服务器。")
++                    tipRow("配对令牌仅使用一次，配对成功后会在本机保存登录会话。")
+                 }
+                 .font(T3Typography.footnote)
+                 .foregroundStyle(T3Color.textSecondary)
+@@ -179,13 +179,13 @@
+     private func connect() async {
+         guard !isWorking else { return }
+         guard let rawURL = URL(string: serverURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+-            errorMessage = "Invalid server URL"
++            errorMessage = "服务器地址无效"
+             return
+         }
+         let url = PairingFlow.serverBaseURL(from: rawURL)
+         let token = pairingToken.trimmingCharacters(in: .whitespacesAndNewlines)
+         guard !token.isEmpty else {
+-            errorMessage = "Pairing token required"
++            errorMessage = "请输入配对令牌"
+             return
+         }
+         isWorking = true
+@@ -197,7 +197,7 @@
+             let pair = try await PairingFlow.exchangeToken(serverURL: url, oneTimeToken: token)
+             await env.configure(serverURL: url, bearerToken: pair.bearerToken)
+         } catch {
+-            errorMessage = error.localizedDescription
++            errorMessage = ChineseLocalization.errorDescription(error)
+         }
+     }
+ }
+--- a/T3 Code/T3 Code/Features/Settings/SettingsView.swift
++++ b/T3 Code/T3 Code/Features/Settings/SettingsView.swift
+@@ -49,7 +49,7 @@
+             .navigationBarHidden(true)
+             .overlay(alignment: .top) {
+                 if didCopyURL {
+-                    Text("URL copied")
++                    Text("地址已复制")
+                         .font(T3Typography.caption)
+                         .fontWeight(.semibold)
+                         .padding(.horizontal, T3Spacing.md)
+@@ -62,48 +62,48 @@
+             }
+             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: didCopyURL)
+             .confirmationDialog(
+-                "Sign out of this server?",
++                "退出此服务器？",
+                 isPresented: $confirmSignOut,
+                 titleVisibility: .visible
+             ) {
+-                Button("Sign out", role: .destructive) {
++                Button("退出登录", role: .destructive) {
+                     Task {
+                         await env.signOut()
+                         dismiss()
+                     }
+                 }
+-                Button("Cancel", role: .cancel) {}
++                Button("取消", role: .cancel) {}
+             } message: {
+-                Text("Your bearer token will be removed from this device. Pair again from the desktop app to reconnect.")
+-            }
+-            .confirmationDialog("Delete saved server?",
++                Text("登录令牌将从此设备移除。重新连接时，请通过桌面端再次配对。")
++            }
++            .confirmationDialog("删除已保存的服务器？",
+                                 isPresented: Binding(get: { pendingDeleteProfile != nil },
+                                                      set: { if !$0 { pendingDeleteProfile = nil } }),
+                                 titleVisibility: .visible,
+                                 presenting: pendingDeleteProfile) { profile in
+-                Button("Delete", role: .destructive) {
++                Button("删除", role: .destructive) {
+                     let target = profile
+                     pendingDeleteProfile = nil
+                     Task { await env.removeProfile(id: target.id) }
+                 }
+-                Button("Cancel", role: .cancel) { pendingDeleteProfile = nil }
++                Button("取消", role: .cancel) { pendingDeleteProfile = nil }
+             } message: { profile in
+-                Text("Remove \"\(profile.name)\" from this device?")
++                Text("从此设备移除“\(profile.name)”？")
+             }
+             .sheet(item: $renamingProfile) { profile in
+                 NavigationStack {
+                     Form {
+-                        TextField("Server name", text: $renameDraft)
++                        TextField("服务器名称", text: $renameDraft)
+                             .textInputAutocapitalization(.never)
+                     }
+-                    .navigationTitle("Rename Server")
++                    .navigationTitle("重命名服务器")
+                     .navigationBarTitleDisplayMode(.inline)
+                     .toolbar {
+                         ToolbarItem(placement: .cancellationAction) {
+-                            Button("Cancel") { renamingProfile = nil }
++                            Button("取消") { renamingProfile = nil }
+                         }
+                         ToolbarItem(placement: .confirmationAction) {
+-                            Button("Save") {
++                            Button("保存") {
+                                 env.renameProfile(id: profile.id, name: renameDraft)
+                                 renamingProfile = nil
+                             }
+@@ -137,7 +137,7 @@
+ 
+     private var connectionSection: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Connection")
++            T3Style.SectionHeader(title: "连接")
+             T3Style.Card {
+                 VStack(alignment: .leading, spacing: T3Spacing.md) {
+                     HStack(alignment: .top) {
+@@ -151,7 +151,7 @@
+                                     .foregroundStyle(T3Color.textSecondary)
+                                     .lineLimit(1)
+                             } else {
+-                                Text("Not paired with a server")
++                                Text("尚未与服务器配对")
+                                     .font(T3Typography.callout)
+                                     .foregroundStyle(T3Color.textSecondary)
+                             }
+@@ -171,7 +171,7 @@
+                     if !env.savedProfiles.isEmpty {
+                         Divider().overlay(T3Color.separator)
+                         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-                            Text("Saved servers")
++                            Text("已保存的服务器")
+                                 .font(T3Typography.callout)
+                                 .foregroundStyle(T3Color.textSecondary)
+                             ForEach(env.savedProfiles.sorted(by: { $0.lastUsedAt > $1.lastUsedAt })) { profile in
+@@ -188,7 +188,7 @@
+                                     }
+                                     Spacer(minLength: T3Spacing.sm)
+                                     if env.activeProfileID == profile.id {
+-                                        T3Style.Pill(text: "Active", tint: T3Color.success, emphasized: true)
++                                        T3Style.Pill(text: "当前使用", tint: T3Color.success, emphasized: true)
+                                     } else {
+                                         Button {
+                                             switchingProfileID = profile.id
+@@ -201,7 +201,7 @@
+                                                 ProgressView()
+                                                     .controlSize(.small)
+                                             } else {
+-                                                Text("Switch")
++                                                Text("切换")
+                                                     .font(T3Typography.footnote.weight(.semibold))
+                                             }
+                                         }
+@@ -214,12 +214,12 @@
+                                             renameDraft = profile.name
+                                             renamingProfile = profile
+                                         } label: {
+-                                            Label("Rename", systemImage: "pencil")
++                                            Label("重命名", systemImage: "pencil")
+                                         }
+                                         Button(role: .destructive) {
+                                             pendingDeleteProfile = profile
+                                         } label: {
+-                                            Label("Delete", systemImage: "trash")
++                                            Label("删除", systemImage: "trash")
+                                         }
+                                     } label: {
+                                         Image(systemName: "ellipsis")
+@@ -238,10 +238,10 @@
+ 
+     private var connectionHeadline: String {
+         switch env.connectionStatus {
+-        case .connected: "Live"
+-        case .connecting: "Connecting…"
+-        case .offline: "Offline"
+-        case .error: "Needs attention"
++        case .connected: "已连接"
++        case .connecting: "连接中…"
++        case .offline: "离线"
++        case .error: "连接异常"
+         }
+     }
+ 
+@@ -249,14 +249,14 @@
+ 
+     private var appearanceSection: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Look & feel")
++            T3Style.SectionHeader(title: "外观")
+             T3Style.Card {
+                 VStack(alignment: .leading, spacing: T3Spacing.lg) {
+                     VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-                        Text("Appearance")
++                        Text("显示模式")
+                             .font(T3Typography.callout)
+                             .foregroundStyle(T3Color.textSecondary)
+-                        Picker("Appearance", selection: $appearanceRaw) {
++                        Picker("显示模式", selection: $appearanceRaw) {
+                             ForEach(AppAppearance.allCases) { a in
+                                 Text(a.label).tag(a.rawValue)
+                             }
+@@ -267,7 +267,7 @@
+                     Divider().overlay(T3Color.separator)
+ 
+                     VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-                        Text("Accent")
++                        Text("主题色")
+                             .font(T3Typography.callout)
+                             .foregroundStyle(T3Color.textSecondary)
+                         HStack(spacing: T3Spacing.md) {
+@@ -310,11 +310,11 @@
+ 
+     private var chatSection: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Chat experience")
++            T3Style.SectionHeader(title: "聊天体验")
+             T3Style.Card(padding: T3Spacing.md) {
+                 VStack(spacing: 0) {
+                     settingsMenuRow(
+-                        title: "Transcript density",
++                        title: "消息间距",
+                         value: (TranscriptDensity(rawValue: transcriptDensityRaw) ?? .comfortable).label
+                     ) {
+                         ForEach(TranscriptDensity.allCases) { d in
+@@ -323,7 +323,7 @@
+                     }
+                     Divider().overlay(T3Color.separator)
+                     settingsMenuRow(
+-                        title: "Composer height",
++                        title: "输入框高度",
+                         value: (ComposerSize(rawValue: composerSizeRaw) ?? .comfortable).label
+                     ) {
+                         ForEach(ComposerSize.allCases) { s in
+@@ -339,7 +339,7 @@
+ 
+     private var archivedThreadsSection: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Threads")
++            T3Style.SectionHeader(title: "会话")
+             T3Style.Card(padding: T3Spacing.md) {
+                 NavigationLink {
+                     ArchivedThreadsView()
+@@ -352,7 +352,7 @@
+                             .frame(width: 28, height: 28)
+                             .background(T3Color.surfaceMuted, in: Circle())
+                         VStack(alignment: .leading, spacing: 2) {
+-                            Text("Archived threads")
++                            Text("已归档会话")
+                                 .font(T3Typography.body)
+                                 .foregroundStyle(T3Color.textPrimary)
+                             Text(archivedSubtitle)
+@@ -388,21 +388,21 @@
+ 
+     private var archivedSubtitle: String {
+         if archivedCount == 0 {
+-            return "No threads archived yet"
+-        }
+-        return "\(archivedCount) archived thread\(archivedCount == 1 ? "" : "s")"
++            return "尚未归档任何会话"
++        }
++        return "已归档 \(archivedCount) 个会话"
+     }
+ 
+     // MARK: - Server
+ 
+     private var serverSection: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Server")
++            T3Style.SectionHeader(title: "服务器")
+             T3Style.Card {
+                 VStack(alignment: .leading, spacing: T3Spacing.lg) {
+                     if case .configured(let url) = env.sessionState {
+                         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-                            Text("Endpoint")
++                            Text("服务地址")
+                                 .font(T3Typography.callout)
+                                 .foregroundStyle(T3Color.textSecondary)
+                             Text(url.absoluteString)
+@@ -426,7 +426,7 @@
+                                     didCopyURL = false
+                                 }
+                             } label: {
+-                                Label("Copy", systemImage: "doc.on.doc")
++                                Label("复制", systemImage: "doc.on.doc")
+                                     .font(T3Typography.bodyEmphasis)
+                                     .frame(maxWidth: .infinity)
+                                     .padding(.vertical, 4)
+@@ -444,7 +444,7 @@
+                                     if isRefreshingConfig {
+                                         ProgressView().controlSize(.small)
+                                     } else {
+-                                        Label("Refresh", systemImage: "arrow.clockwise")
++                                        Label("刷新", systemImage: "arrow.clockwise")
+                                     }
+                                 }
+                                 .font(T3Typography.bodyEmphasis)
+@@ -456,7 +456,7 @@
+                             .disabled(isRefreshingConfig)
+                         }
+                     } else {
+-                        Text("Not connected")
++                        Text("未连接")
+                             .font(T3Typography.body)
+                             .foregroundStyle(T3Color.textSecondary)
+                     }
+@@ -479,7 +479,7 @@
+     private var providersSection: some View {
+         if let config = env.serverConfig, !config.providers.isEmpty {
+             VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-                T3Style.SectionHeader(title: "Model providers")
++                T3Style.SectionHeader(title: "模型服务商")
+                 T3Style.Card(padding: T3Spacing.md) {
+                     VStack(spacing: 0) {
+                         let shown = Array(config.providers.prefix(8))
+@@ -491,7 +491,7 @@
+                         }
+                     }
+                 }
+-                Text("Configured on your desktop server.")
++                Text("请在桌面服务器中配置。")
+                     .font(T3Typography.footnote)
+                     .foregroundStyle(T3Color.textTertiary)
+                     .padding(.horizontal, T3Spacing.xs)
+@@ -520,10 +520,15 @@
+     }
+ 
+     private func providerStatusLabel(_ p: ServerProvider) -> String {
+-        if p.isUsable { return "Ready" }
+-        if !p.installed { return "Missing" }
+-        if !p.enabled { return "Off" }
+-        return p.auth.status
++        if p.isUsable { return "就绪" }
++        if !p.installed { return "未安装" }
++        if !p.enabled { return "已停用" }
++        switch p.auth.status {
++        case "unauthenticated": return "未认证"
++        case "authenticated": return "已认证"
++        case "authenticating": return "认证中"
++        default: return "需要认证"
++        }
+     }
+ 
+     private func providerStatusTint(_ p: ServerProvider) -> Color {
+@@ -536,11 +541,11 @@
+ 
+     private var aboutSection: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "About")
++            T3Style.SectionHeader(title: "关于")
+             T3Style.Card(padding: T3Spacing.md) {
+                 VStack(spacing: 0) {
+                     HStack {
+-                        Text("Version")
++                        Text("版本")
+                             .font(T3Typography.body)
+                             .foregroundStyle(T3Color.textPrimary)
+                         Spacer()
+@@ -555,7 +560,7 @@
+ 
+                     Link(destination: URL(string: "https://t3.codes")!) {
+                         HStack {
+-                            Text("T3 Code on the web")
++                            Text("访问 T3 Code 官网")
+                                 .font(T3Typography.body)
+                                 .foregroundStyle(T3Color.textPrimary)
+                             Spacer()
+@@ -574,16 +579,16 @@
+ 
+     private var signOutSection: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Account")
++            T3Style.SectionHeader(title: "账户")
+             T3Style.Card {
+                 VStack(alignment: .leading, spacing: T3Spacing.md) {
+-                    Text("Signing out clears the saved server URL and token from this iPhone.")
++                    Text("退出后将清除此 iPhone 保存的服务器地址和登录令牌。")
+                         .font(T3Typography.footnote)
+                         .foregroundStyle(T3Color.textSecondary)
+                     Button(role: .destructive) {
+                         confirmSignOut = true
+                     } label: {
+-                        Text("Sign out")
++                        Text("退出登录")
+                             .font(T3Typography.bodyEmphasis)
+                             .frame(maxWidth: .infinity)
+                             .padding(.vertical, 8)
+--- a/T3 Code/T3 Code/Features/Thread/ActivityRow.swift
++++ b/T3 Code/T3 Code/Features/Thread/ActivityRow.swift
+@@ -43,7 +43,7 @@
+         .animation(.easeInOut(duration: 0.18), value: isExpanded)
+         .accessibilityElement(children: .combine)
+         .accessibilityLabel(accessibilityLabel)
+-        .accessibilityHint(hasExpansion ? "Double tap to \(isExpanded ? "collapse" : "expand") details" : "")
++        .accessibilityHint(hasExpansion ? "轻点两下\(isExpanded ? "收起" : "展开")详情" : "")
+     }
+ 
+     private var summaryRow: some View {
+@@ -146,7 +146,7 @@
+             if activity.changedFiles.count == 1 {
+                 return activity.changedFiles[0]
+             }
+-            return "\(activity.changedFiles.count) files"
++            return "\(activity.changedFiles.count) 个文件"
+         }
+         if let detail = activity.detail, !detail.isEmpty {
+             return firstLine(detail)
+--- a/T3 Code/T3 Code/Features/Thread/ComposerView.swift
++++ b/T3 Code/T3 Code/Features/Thread/ComposerView.swift
+@@ -50,7 +50,7 @@
+     private var textField: some View {
+         ZStack(alignment: .topLeading) {
+             if draft.isEmpty {
+-                Text("Ask anything, @tag files/folders,\nor use / to show available commands")
++                Text("输入问题，使用 @ 引用文件或文件夹，\n使用 / 查看可用命令")
+                     .foregroundStyle(T3Color.textTertiary)
+                     .font(T3Typography.callout)
+                     .padding(.top, 8)
+@@ -117,7 +117,7 @@
+                     )
+             }
+             .buttonStyle(.plain)
+-            .accessibilityLabel("Stop turn")
++            .accessibilityLabel("停止当前任务")
+         } else {
+             Button(action: send) {
+                 Image(systemName: "arrow.up")
+@@ -133,7 +133,7 @@
+             }
+             .buttonStyle(.plain)
+             .disabled(!canSend)
+-            .accessibilityLabel("Send message")
++            .accessibilityLabel("发送消息")
+         }
+     }
+ 
+@@ -217,7 +217,7 @@
+     // MARK: - Helpers
+ 
+     private var modelName: String {
+-        guard let detail = store.detail else { return "Model" }
++        guard let detail = store.detail else { return "模型" }
+         return env.serverConfig?.modelDisplayLabel(selection: detail.modelSelection)
+             ?? detail.modelSelection.model
+     }
+--- a/T3 Code/T3 Code/Features/Thread/MessageTimelineView.swift
++++ b/T3 Code/T3 Code/Features/Thread/MessageTimelineView.swift
+@@ -15,67 +15,69 @@
+ 
+     var body: some View {
+         ScrollViewReader { proxy in
+-            ZStack(alignment: .bottomTrailing) {
+-                ScrollView {
+-                    LazyVStack(alignment: .leading, spacing: messageSpacing) {
+-                        if rows.isEmpty {
+-                            emptyState.padding(.top, 96)
+-                        } else {
+-                            ForEach(rows) { row in
+-                                rowView(row)
++            GeometryReader { viewport in
++                ZStack(alignment: .bottomTrailing) {
++                    ScrollView {
++                        LazyVStack(alignment: .leading, spacing: messageSpacing) {
++                            if rows.isEmpty {
++                                emptyState.padding(.top, 96)
++                            } else {
++                                ForEach(rows) { row in
++                                    rowView(row)
++                                }
+                             }
++                            Color.clear
++                                .frame(height: 1)
++                                .id(bottomAnchor)
+                         }
+-                        Color.clear
+-                            .frame(height: 1)
+-                            .id(bottomAnchor)
+-                    }
+-                    .padding(.horizontal, horizontalPadding)
+-                    .padding(.top, T3Spacing.lg)
+-                    .padding(.bottom, T3Spacing.xxl)
++                        .padding(.horizontal, horizontalPadding)
++                        .padding(.top, T3Spacing.lg)
++                        .padding(.bottom, T3Spacing.xxl)
++                        .onGeometryChange(for: Bool.self) { geometry in
++                            geometry.frame(in: .named("messageTimeline")).maxY
++                                - viewport.size.height <= stickyThreshold
++                        } action: { near in
++                            isNearBottom = near
++                            if near { hasNewWhileScrolledUp = false }
++                        }
++                    }
++                    .background(T3Color.surfaceGrouped)
++                    .contentShape(Rectangle())
++                    .scrollDismissesKeyboard(.interactively)
++                    .onTapGesture {
++                        UIApplication.dismissKeyboard()
++                    }
++                    .coordinateSpace(name: "messageTimeline")
++                    .onChange(of: rows.count) { _, _ in
++                        handleStreamUpdate(proxy: proxy, animated: true)
++                    }
++                    .onChange(of: store.messages.last?.text) { _, _ in
++                        handleStreamUpdate(proxy: proxy, animated: false)
++                    }
++                    .onChange(of: store.messages.last?.attachments?.count) { _, _ in
++                        handleStreamUpdate(proxy: proxy, animated: false)
++                    }
++                    .onChange(of: latestActivitySignature) { _, _ in
++                        handleStreamUpdate(proxy: proxy, animated: false)
++                    }
++                    .onAppear {
++                        guard !didInitialScroll else { return }
++                        didInitialScroll = true
++                        DispatchQueue.main.async {
++                            proxy.scrollTo(bottomAnchor, anchor: .bottom)
++                        }
++                    }
++
++                    if !isNearBottom && !rows.isEmpty {
++                        jumpToLatestButton(proxy: proxy)
++                            .padding(.trailing, T3Spacing.lg)
++                            .padding(.bottom, T3Spacing.md)
++                            .transition(.scale.combined(with: .opacity))
++                    }
+                 }
+-                .background(T3Color.surfaceGrouped)
+-                .contentShape(Rectangle())
+-                .scrollDismissesKeyboard(.interactively)
+-                .onTapGesture {
+-                    UIApplication.dismissKeyboard()
+-                }
+-                .onScrollGeometryChange(for: Bool.self) { geometry in
+-                    let distanceFromBottom = geometry.contentSize.height
+-                        - (geometry.contentOffset.y + geometry.containerSize.height)
+-                    return distanceFromBottom <= stickyThreshold
+-                } action: { _, near in
+-                    isNearBottom = near
+-                    if near { hasNewWhileScrolledUp = false }
+-                }
+-                .onChange(of: rows.count) { _, _ in
+-                    handleStreamUpdate(proxy: proxy, animated: true)
+-                }
+-                .onChange(of: store.messages.last?.text) { _, _ in
+-                    handleStreamUpdate(proxy: proxy, animated: false)
+-                }
+-                .onChange(of: store.messages.last?.attachments?.count) { _, _ in
+-                    handleStreamUpdate(proxy: proxy, animated: false)
+-                }
+-                .onChange(of: latestActivitySignature) { _, _ in
+-                    handleStreamUpdate(proxy: proxy, animated: false)
+-                }
+-                .onAppear {
+-                    guard !didInitialScroll else { return }
+-                    didInitialScroll = true
+-                    DispatchQueue.main.async {
+-                        proxy.scrollTo(bottomAnchor, anchor: .bottom)
+-                    }
+-                }
+-
+-                if !isNearBottom && !rows.isEmpty {
+-                    jumpToLatestButton(proxy: proxy)
+-                        .padding(.trailing, T3Spacing.lg)
+-                        .padding(.bottom, T3Spacing.md)
+-                        .transition(.scale.combined(with: .opacity))
+-                }
+-            }
+-            .animation(.spring(response: 0.32, dampingFraction: 0.85), value: isNearBottom)
+-            .animation(.easeInOut(duration: 0.2), value: hasNewWhileScrolledUp)
++                .animation(.spring(response: 0.32, dampingFraction: 0.85), value: isNearBottom)
++                .animation(.easeInOut(duration: 0.2), value: hasNewWhileScrolledUp)
++            }
+         }
+     }
+ 
+@@ -161,7 +163,7 @@
+ 
+     private func jumpToLatestButton(proxy: ScrollViewProxy) -> some View {
+         let isStreaming = store.messages.last?.streaming == true
+-        let label = hasNewWhileScrolledUp || isStreaming ? "New message" : "Jump to latest"
++        let label = hasNewWhileScrolledUp || isStreaming ? "新消息" : "回到最新消息"
+         return Button {
+             hasNewWhileScrolledUp = false
+             withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+@@ -223,10 +225,10 @@
+                         .stroke(T3Color.separator, lineWidth: 0.5)
+                 )
+             VStack(spacing: T3Spacing.xs) {
+-                Text("Ready")
++                Text("就绪")
+                     .font(T3Typography.headline)
+                     .foregroundStyle(T3Color.textPrimary)
+-                Text("Send a message to continue this thread.")
++                Text("发送消息，继续此会话。")
+                     .font(T3Typography.callout)
+                     .foregroundStyle(T3Color.textSecondary)
+             }
+--- a/T3 Code/T3 Code/Features/Thread/PendingApprovalCard.swift
++++ b/T3 Code/T3 Code/Features/Thread/PendingApprovalCard.swift
+@@ -39,7 +39,7 @@
+                 .frame(width: 28, height: 28)
+                 .background(T3Color.warning.opacity(0.16), in: Circle())
+             VStack(alignment: .leading, spacing: 2) {
+-                Text("Approval needed")
++                Text("需要审批")
+                     .font(T3Typography.headline)
+                     .foregroundStyle(T3Color.textPrimary)
+                 Text(approval.kind.displayLabel)
+--- a/T3 Code/T3 Code/Features/Thread/PendingUserInputCard.swift
++++ b/T3 Code/T3 Code/Features/Thread/PendingUserInputCard.swift
+@@ -33,10 +33,10 @@
+                 .frame(width: 28, height: 28)
+                 .background(T3Color.warning.opacity(0.16), in: Circle())
+             VStack(alignment: .leading, spacing: 2) {
+-                Text("Input needed")
++                Text("需要补充信息")
+                     .font(T3Typography.headline)
+                     .foregroundStyle(T3Color.textPrimary)
+-                Text("Answer to continue")
++                Text("回答后继续")
+                     .font(T3Typography.footnote)
+                     .foregroundStyle(T3Color.textSecondary)
+             }
+@@ -103,7 +103,7 @@
+                 .font(.system(size: 13, weight: .semibold))
+                 .foregroundStyle(T3Color.textTertiary)
+                 .frame(width: 22)
+-            TextField("Other (optional)",
++            TextField("其他回答（选填）",
+                       text: Binding(get: { customByQuestion[question.id] ?? "" },
+                                     set: { customByQuestion[question.id] = $0 }))
+                 .textInputAutocapitalization(.sentences)
+@@ -123,7 +123,7 @@
+             } label: {
+                 HStack(spacing: T3Spacing.xs) {
+                     Image(systemName: "paperplane.fill")
+-                    Text("Submit")
++                    Text("提交")
+                         .font(T3Typography.bodyEmphasis)
+                 }
+                 .padding(.horizontal, T3Spacing.lg)
+--- a/T3 Code/T3 Code/Features/Thread/ProposedPlanCard.swift
++++ b/T3 Code/T3 Code/Features/Thread/ProposedPlanCard.swift
+@@ -31,10 +31,10 @@
+                 .frame(width: 28, height: 28)
+                 .background(AppAccent.color(for: accentRaw).opacity(0.16), in: Circle())
+             VStack(alignment: .leading, spacing: 2) {
+-                Text("Proposed plan")
++                Text("建议方案")
+                     .font(T3Typography.headline)
+                     .foregroundStyle(T3Color.textPrimary)
+-                Text(plan.updatedAt.formatted(date: .omitted, time: .shortened))
++                Text(plan.updatedAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(Locale(identifier: "zh_Hans_CN"))))
+                     .font(T3Typography.footnote)
+                     .foregroundStyle(T3Color.textTertiary)
+             }
+@@ -65,7 +65,7 @@
+     private var actionRow: some View {
+         HStack(spacing: T3Spacing.sm) {
+             if plan.implementedAt != nil {
+-                Label("Implemented", systemImage: "checkmark.seal.fill")
++                Label("已执行", systemImage: "checkmark.seal.fill")
+                     .font(T3Typography.bodyEmphasis)
+                     .foregroundStyle(T3Color.success)
+                 Spacer(minLength: 0)
+@@ -79,7 +79,7 @@
+                             Image(systemName: "play.fill")
+                                 .font(.system(size: 13, weight: .semibold))
+                         }
+-                        Text(isImplementing ? "Starting…" : "Implement plan")
++                        Text(isImplementing ? "启动中…" : "执行方案")
+                             .font(.system(size: 13, weight: .medium))
+                     }
+                     .padding(.horizontal, T3Spacing.md)
+--- a/T3 Code/T3 Code/Features/Thread/ThreadView.swift
++++ b/T3 Code/T3 Code/Features/Thread/ThreadView.swift
+@@ -140,7 +140,7 @@
+                 VStack(alignment: .leading, spacing: T3Spacing.lg) {
+                     if let status = gitStatus, let cwd = gitCwd {
+                         if !status.isRepo {
+-                            Text("Not a git repository.")
++                            Text("当前目录不是 Git 仓库。")
+                                 .font(T3Typography.footnote)
+                                 .foregroundStyle(T3Color.textSecondary)
+                                 .frame(maxWidth: .infinity, alignment: .leading)
+@@ -167,7 +167,7 @@
+                         HStack(spacing: T3Spacing.sm) {
+                             ProgressView()
+                                 .controlSize(.small)
+-                            Text("Loading git status…")
++                            Text("正在加载 Git 状态…")
+                                 .font(T3Typography.footnote)
+                                 .foregroundStyle(T3Color.textSecondary)
+                         }
+@@ -193,26 +193,26 @@
+                     .disabled(isRefreshingGitStatus)
+                 }
+                 ToolbarItem(placement: .confirmationAction) {
+-                    Button("Done") { showGitSheet = false }
++                    Button("完成") { showGitSheet = false }
+                 }
+             }
+             .confirmationDialog(pullConfirmTitle,
+                                 isPresented: $confirmPullPresented,
+                                 titleVisibility: .visible) {
+-                Button("Pull", role: .none) {
++                Button("拉取", role: .none) {
+                     Task { await runPull() }
+                 }
+-                Button("Cancel", role: .cancel) {}
++                Button("取消", role: .cancel) {}
+             } message: {
+                 Text(pullConfirmMessage)
+             }
+             .confirmationDialog(pushConfirmTitle,
+                                 isPresented: $confirmPushPresented,
+                                 titleVisibility: .visible) {
+-                Button("Push", role: .none) {
++                Button("推送", role: .none) {
+                     Task { await runGitAction(.push) }
+                 }
+-                Button("Cancel", role: .cancel) {}
++                Button("取消", role: .cancel) {}
+             } message: {
+                 Text(pushConfirmMessage)
+             }
+@@ -227,7 +227,7 @@
+                 Image(systemName: "arrow.triangle.branch")
+                     .font(.system(size: 12, weight: .semibold))
+                     .foregroundStyle(T3Color.textTertiary)
+-                Text(status.refName ?? "No branch")
++                Text(status.refName ?? "无分支")
+                     .font(T3Typography.bodyEmphasis)
+                     .foregroundStyle(T3Color.textPrimary)
+                     .lineLimit(1)
+@@ -248,7 +248,7 @@
+                         .monospacedDigit()
+                 }
+                 if status.hasUpstream == false {
+-                    T3Style.Pill(text: "NO UPSTREAM",
++                    T3Style.Pill(text: "未设置上游分支",
+                                  systemImage: "exclamationmark.triangle.fill",
+                                  tint: T3Color.warning,
+                                  emphasized: true)
+@@ -278,7 +278,7 @@
+     private func gitFilesList(status: VcsStatusSummary) -> some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+             HStack(spacing: 4) {
+-                Text("CHANGED FILES")
++                Text("文件变更")
+                     .font(T3Typography.caption)
+                     .foregroundStyle(T3Color.textTertiary)
+                     .tracking(0.6)
+@@ -317,7 +317,7 @@
+                     }
+                 }
+                 if status.workingTree.files.count > 60 {
+-                    Text("+\(status.workingTree.files.count - 60) more…")
++                    Text("还有 \(status.workingTree.files.count - 60) 个文件…")
+                         .font(T3Typography.footnote)
+                         .foregroundStyle(T3Color.textTertiary)
+                         .padding(.horizontal, T3Spacing.md)
+@@ -337,7 +337,7 @@
+             Button {
+                 confirmPullPresented = true
+             } label: {
+-                Label("Pull", systemImage: "arrow.down")
++                Label("拉取", systemImage: "arrow.down")
+                     .frame(maxWidth: .infinity)
+             }
+             .buttonStyle(.bordered)
+@@ -349,7 +349,7 @@
+                     commitInlineExpanded = true
+                 }
+             } label: {
+-                Label("Commit", systemImage: "checkmark.seal")
++                Label("提交", systemImage: "checkmark.seal")
+                     .frame(maxWidth: .infinity)
+             }
+             .buttonStyle(.bordered)
+@@ -358,7 +358,7 @@
+             Button {
+                 confirmPushPresented = true
+             } label: {
+-                Label("Push", systemImage: "arrow.up")
++                Label("推送", systemImage: "arrow.up")
+                     .frame(maxWidth: .infinity)
+             }
+             .buttonStyle(.borderedProminent)
+@@ -369,11 +369,11 @@
+ 
+     private func commitInlineEditor(status: VcsStatusSummary) -> some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            Text("COMMIT MESSAGE")
++            Text("提交说明")
+                 .font(T3Typography.caption)
+                 .foregroundStyle(T3Color.textTertiary)
+                 .tracking(0.6)
+-            TextField("Describe these changes…", text: $commitMessageDraft, axis: .vertical)
++            TextField("描述本次变更…", text: $commitMessageDraft, axis: .vertical)
+                 .lineLimit(3...6)
+                 .textFieldStyle(.plain)
+                 .padding(T3Spacing.md)
+@@ -384,7 +384,7 @@
+                         .stroke(T3Color.separator, lineWidth: 0.5)
+                 )
+             HStack(spacing: T3Spacing.sm) {
+-                Button("Cancel") {
++                Button("取消") {
+                     withAnimation(.easeInOut(duration: 0.18)) {
+                         commitInlineExpanded = false
+                     }
+@@ -400,7 +400,7 @@
+                     }
+                     Task { await runGitAction(.commit, commitMessage: message) }
+                 } label: {
+-                    Label("Commit", systemImage: "checkmark.seal.fill")
++                    Label("提交", systemImage: "checkmark.seal.fill")
+                         .frame(maxWidth: .infinity)
+                 }
+                 .buttonStyle(.borderedProminent)
+@@ -457,18 +457,18 @@
+     private func gitStatusSummaryLine(_ status: VcsStatusSummary) -> String {
+         if status.hasWorkingTreeChanges {
+             let count = status.workingTree.files.count
+-            let plural = count == 1 ? "file" : "files"
+-            return "\(count) \(plural)  +\(status.workingTree.insertions)  −\(status.workingTree.deletions)"
++
++            return "\(count) 个文件  +\(status.workingTree.insertions)  −\(status.workingTree.deletions)"
+         }
+         if status.hasUpstream == false {
+-            return "Working tree clean • no upstream"
++            return "工作区干净 · 未设置上游分支"
+         }
+         if status.aheadCount == 0 && status.behindCount == 0 {
+-            return "Up to date"
+-        }
+-        var parts: [String] = ["Working tree clean"]
+-        if status.aheadCount > 0 { parts.append("\(status.aheadCount) to push") }
+-        if status.behindCount > 0 { parts.append("\(status.behindCount) to pull") }
++            return "已是最新"
++        }
++        var parts: [String] = ["工作区干净"]
++        if status.aheadCount > 0 { parts.append("\(status.aheadCount) 个提交待推送") }
++        if status.behindCount > 0 { parts.append("\(status.behindCount) 个提交待拉取") }
+         return parts.joined(separator: " • ")
+     }
+ 
+@@ -479,25 +479,25 @@
+     }
+ 
+     private var pullConfirmTitle: String {
+-        guard let status = gitStatus, status.behindCount > 0 else { return "Pull from upstream?" }
+-        let s = status.behindCount == 1 ? "" : "s"
+-        return "Pull \(status.behindCount) commit\(s)?"
++        guard let status = gitStatus, status.behindCount > 0 else { return "从上游分支拉取？" }
++
++        return "拉取 \(status.behindCount) 个提交？"
+     }
+ 
+     private var pullConfirmMessage: String {
+-        let branch = gitStatus?.refName ?? "current branch"
+-        return "Fetch and fast-forward \(branch) from its upstream. Local commits won't be lost."
++        let branch = gitStatus?.refName ?? "当前分支"
++        return "从上游获取更新并快进合并到\(branch)，保留本地提交。"
+     }
+ 
+     private var pushConfirmTitle: String {
+-        guard let status = gitStatus, status.aheadCount > 0 else { return "Push to upstream?" }
+-        let s = status.aheadCount == 1 ? "" : "s"
+-        return "Push \(status.aheadCount) commit\(s)?"
++        guard let status = gitStatus, status.aheadCount > 0 else { return "推送到上游分支？" }
++
++        return "推送 \(status.aheadCount) 个提交？"
+     }
+ 
+     private var pushConfirmMessage: String {
+-        let branch = gitStatus?.refName ?? "current branch"
+-        return "Push local commits on \(branch) to its upstream remote."
++        let branch = gitStatus?.refName ?? "当前分支"
++        return "将\(branch)上的本地提交推送到上游远程分支。"
+     }
+ 
+     private var resolvedThread: ThreadHeaderView.ThreadDescriptor {
+@@ -527,7 +527,7 @@
+         do {
+             try await client.renameThread(threadId: threadShell.id, title: trimmed)
+         } catch {
+-            await MainActor.run { store.lastError = error.localizedDescription }
++            await MainActor.run { store.lastError = ChineseLocalization.errorDescription(error) }
+         }
+     }
+ 
+@@ -538,7 +538,7 @@
+                 try await client.archiveThread(threadId: threadShell.id)
+                 await MainActor.run { dismiss() }
+             } catch {
+-                await MainActor.run { store.lastError = error.localizedDescription }
++                await MainActor.run { store.lastError = ChineseLocalization.errorDescription(error) }
+             }
+         }
+     }
+@@ -554,7 +554,7 @@
+             let status = try await client.refreshVcsStatus(cwd: cwd)
+             await MainActor.run { gitStatus = status }
+         } catch {
+-            await MainActor.run { gitStatusError = error.localizedDescription }
++            await MainActor.run { gitStatusError = ChineseLocalization.errorDescription(error) }
+         }
+     }
+ 
+@@ -578,9 +578,9 @@
+             }
+         } catch {
+             await MainActor.run {
+-                gitStatusError = error.localizedDescription
+-                presentGitToast(.init(title: "Pull failed",
+-                                      detail: error.localizedDescription,
++                gitStatusError = ChineseLocalization.errorDescription(error)
++                presentGitToast(.init(title: "拉取失败",
++                                      detail: ChineseLocalization.errorDescription(error),
+                                       isSuccess: false))
+             }
+         }
+@@ -604,13 +604,13 @@
+         } catch {
+             let label: String
+             switch action {
+-            case .commit: label = "Commit failed"
+-            case .push:   label = "Push failed"
++            case .commit: label = "提交失败"
++            case .push:   label = "推送失败"
+             }
+             await MainActor.run {
+-                gitStatusError = error.localizedDescription
++                gitStatusError = ChineseLocalization.errorDescription(error)
+                 presentGitToast(.init(title: label,
+-                                      detail: error.localizedDescription,
++                                      detail: ChineseLocalization.errorDescription(error),
+                                       isSuccess: false))
+             }
+         }
+@@ -637,12 +637,12 @@
+     private func pullToastTitle(status: String, count: Int) -> String {
+         switch status.lowercased() {
+         case "uptodate", "up_to_date", "up-to-date":
+-            return "Already up to date"
++            return "已是最新"
+         case "fastforward", "fast_forward", "fast-forward":
+-            let s = count == 1 ? "" : "s"
+-            return count > 0 ? "Pulled \(count) commit\(s)" : "Pulled latest commits"
++
++            return count > 0 ? "已拉取 \(count) 个提交" : "已拉取最新提交"
+         default:
+-            return "Pull complete"
++            return "拉取完成"
+         }
+     }
+ 
+@@ -659,7 +659,7 @@
+             do {
+                 try await client.unarchiveThread(threadId: threadShell.id)
+             } catch {
+-                await MainActor.run { store.lastError = error.localizedDescription }
++                await MainActor.run { store.lastError = ChineseLocalization.errorDescription(error) }
+             }
+         }
+     }
+@@ -671,7 +671,7 @@
+                 try await client.deleteThread(threadId: threadShell.id)
+                 await MainActor.run { dismiss() }
+             } catch {
+-                await MainActor.run { store.lastError = error.localizedDescription }
++                await MainActor.run { store.lastError = ChineseLocalization.errorDescription(error) }
+             }
+         }
+     }
+@@ -734,13 +734,13 @@
+                 .fill(T3Color.separator)
+                 .frame(height: 0.5)
+         }
+-        .confirmationDialog("Delete this thread?",
++        .confirmationDialog("删除此会话？",
+                             isPresented: $confirmDelete,
+                             titleVisibility: .visible) {
+-            Button("Delete", role: .destructive, action: onDelete)
+-            Button("Cancel", role: .cancel) {}
++            Button("删除", role: .destructive, action: onDelete)
++            Button("取消", role: .cancel) {}
+         } message: {
+-            Text("This thread will be permanently removed from the desktop server.")
++            Text("此会话将从桌面服务器永久删除。")
+         }
+     }
+ 
+@@ -793,31 +793,31 @@
+             Button {
+                 onRename()
+             } label: {
+-                Label("Rename thread", systemImage: "pencil")
++                Label("重命名会话", systemImage: "pencil")
+             }
+             Button {
+                 onViewDiffs()
+             } label: {
+-                Label("View changes", systemImage: "doc.text.magnifyingglass")
++                Label("查看变更", systemImage: "doc.text.magnifyingglass")
+             }
+             if isArchived {
+                 Button {
+                     onUnarchive()
+                 } label: {
+-                    Label("Unarchive", systemImage: "tray.and.arrow.up")
++                    Label("取消归档", systemImage: "tray.and.arrow.up")
+                 }
+             } else {
+                 Button {
+                     onArchive()
+                 } label: {
+-                    Label("Archive", systemImage: "archivebox")
++                    Label("归档", systemImage: "archivebox")
+                 }
+             }
+             Divider()
+             Button(role: .destructive) {
+                 confirmDelete = true
+             } label: {
+-                Label("Delete", systemImage: "trash")
++                Label("删除", systemImage: "trash")
+             }
+         } label: {
+             Image(systemName: "ellipsis")
+@@ -882,7 +882,7 @@
+                     Text("·")
+                         .font(T3Typography.footnote)
+                         .foregroundStyle(T3Color.textTertiary)
+-                    Text("running")
++                    Text("运行中")
+                         .font(T3Typography.footnote)
+                         .foregroundStyle(T3Color.warning)
+                 }
+@@ -896,12 +896,12 @@
+         if let session {
+             switch session.status {
+             case .running:
+-                T3Style.Pill(text: "Running",
++                T3Style.Pill(text: "运行中",
+                              systemImage: "circle.fill",
+                              tint: T3Color.warning,
+                              emphasized: true)
+             case .error:
+-                T3Style.Pill(text: "Error",
++                T3Style.Pill(text: "错误",
+                              systemImage: "exclamationmark.triangle.fill",
+                              tint: T3Color.danger,
+                              emphasized: true)
+@@ -916,12 +916,12 @@
+             Button {
+                 onSetInteractionMode(.default)
+             } label: {
+-                Label("Build", systemImage: thread.interactionMode == .default ? "checkmark" : "hammer")
++                Label("执行", systemImage: thread.interactionMode == .default ? "checkmark" : "hammer")
+             }
+             Button {
+                 onSetInteractionMode(.plan)
+             } label: {
+-                Label("Plan", systemImage: thread.interactionMode == .plan ? "checkmark" : "doc.plaintext")
++                Label("规划", systemImage: thread.interactionMode == .plan ? "checkmark" : "doc.plaintext")
+             }
+         } label: {
+             interactionModeBadge
+@@ -930,7 +930,7 @@
+ 
+     private var interactionModeBadge: some View {
+         let mode = thread.interactionMode
+-        let label = mode == .plan ? "PLAN" : "BUILD"
++        let label = mode == .plan ? "规划" : "执行"
+         let tint: Color = mode == .plan ? accentColor : T3Color.success
+         return T3Style.Pill(text: label, tint: tint, emphasized: true)
+     }
+@@ -940,19 +940,19 @@
+             Button {
+                 onSetRuntimeMode(.approvalRequired)
+             } label: {
+-                Label("Supervised",
++                Label("逐项审批",
+                       systemImage: thread.runtimeMode == .approvalRequired ? "checkmark" : "checkmark.shield")
+             }
+             Button {
+                 onSetRuntimeMode(.autoAcceptEdits)
+             } label: {
+-                Label("Auto edits",
++                Label("自动编辑",
+                       systemImage: thread.runtimeMode == .autoAcceptEdits ? "checkmark" : "wand.and.stars")
+             }
+             Button {
+                 onSetRuntimeMode(.fullAccess)
+             } label: {
+-                Label("Full access",
++                Label("完全访问",
+                       systemImage: thread.runtimeMode == .fullAccess ? "checkmark" : "lock.open")
+             }
+         } label: {
+@@ -969,9 +969,9 @@
+ 
+     private var runtimeModeLabel: String {
+         switch thread.runtimeMode {
+-        case .approvalRequired: "supervised"
+-        case .autoAcceptEdits: "auto edits"
+-        case .fullAccess: "full access"
++        case .approvalRequired: "逐项审批"
++        case .autoAcceptEdits: "自动编辑"
++        case .fullAccess: "完全访问"
+         }
+     }
+ 
+@@ -995,9 +995,9 @@
+         NavigationStack {
+             Group {
+                 if changes.isEmpty {
+-                    ContentUnavailableView("No file changes yet",
++                    ContentUnavailableView("暂无文件变更",
+                                            systemImage: "doc.text",
+-                                           description: Text("When the agent edits files, they will show up here."))
++                                           description: Text("智能体编辑文件后，变更会显示在这里。"))
+                 } else {
+                     List {
+                         ForEach(changes) { change in
+@@ -1030,7 +1030,7 @@
+                     .listStyle(.insetGrouped)
+                 }
+             }
+-            .navigationTitle("Changes")
++            .navigationTitle("变更")
+             .navigationBarTitleDisplayMode(.inline)
+         }
+     }
+@@ -1055,7 +1055,7 @@
+     var body: some View {
+         NavigationStack {
+             VStack(spacing: T3Spacing.lg) {
+-                TextField("Thread title", text: $draft)
++                TextField("会话标题", text: $draft)
+                     .textFieldStyle(.roundedBorder)
+                     .focused($focused)
+                     .submitLabel(.done)
+@@ -1063,14 +1063,14 @@
+                 Spacer()
+             }
+             .padding(T3Spacing.lg)
+-            .navigationTitle("Rename thread")
++            .navigationTitle("重命名会话")
+             .navigationBarTitleDisplayMode(.inline)
+             .toolbar {
+                 ToolbarItem(placement: .cancellationAction) {
+-                    Button("Cancel", action: onCancel)
++                    Button("取消", action: onCancel)
+                 }
+                 ToolbarItem(placement: .confirmationAction) {
+-                    Button("Save") {
++                    Button("保存") {
+                         onSubmit(draft)
+                     }
+                     .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+--- a/T3 Code/T3 Code/Features/Threads/ArchivedThreadsView.swift
++++ b/T3 Code/T3 Code/Features/Threads/ArchivedThreadsView.swift
+@@ -1,9 +1,9 @@
+ import SwiftUI
+ 
+ private enum ArchivedSortOrder: String, CaseIterable {
+-    case recent = "Recently Archived"
+-    case title = "Title"
+-    case project = "Project"
++    case recent = "最近归档"
++    case title = "标题"
++    case project = "项目"
+ }
+ 
+ struct ArchivedThreadsView: View {
+@@ -36,56 +36,56 @@
+         }
+         .navigationBarBackButtonHidden(true)
+         .toolbar(.hidden, for: .navigationBar)
+-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search archived threads")
+-        .alert("Couldn't update thread",
++        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索已归档会话")
++        .alert("更新会话失败",
+                isPresented: Binding(get: { actionError != nil },
+                                     set: { if !$0 { actionError = nil } })) {
+-            Button("OK", role: .cancel) { actionError = nil }
++            Button("好", role: .cancel) { actionError = nil }
+         } message: {
+             Text(actionError ?? "")
+         }
+-        .confirmationDialog("Delete this thread?",
++        .confirmationDialog("删除此会话？",
+                             isPresented: Binding(get: { pendingDeleteThread != nil },
+                                                  set: { if !$0 { pendingDeleteThread = nil } }),
+                             titleVisibility: .visible,
+                             presenting: pendingDeleteThread) { thread in
+-            Button("Delete", role: .destructive) {
++            Button("删除", role: .destructive) {
+                 let target = thread
+                 pendingDeleteThread = nil
+                 delete(thread: target)
+             }
+-            Button("Cancel", role: .cancel) { pendingDeleteThread = nil }
++            Button("取消", role: .cancel) { pendingDeleteThread = nil }
+         } message: { _ in
+-            Text("This thread will be permanently removed from the desktop server.")
+-        }
+-        .confirmationDialog("Bulk actions", isPresented: $showBulkActionDialog, titleVisibility: .visible) {
+-            Button("Unarchive all shown") {
++            Text("此会话将从桌面服务器永久删除。")
++        }
++        .confirmationDialog("批量操作", isPresented: $showBulkActionDialog, titleVisibility: .visible) {
++            Button("恢复当前列表中的会话") {
+                 showConfirmBulkUnarchive = true
+             }
+-            Button("Delete all shown", role: .destructive) {
++            Button("删除当前列表中的会话", role: .destructive) {
+                 showConfirmBulkDelete = true
+             }
+-            Button("Cancel", role: .cancel) {}
++            Button("取消", role: .cancel) {}
+         } message: {
+-            Text("Applies to the currently filtered archived threads.")
+-        }
+-        .alert("Unarchive all shown threads?",
++            Text("操作将应用于当前筛选结果中的所有已归档会话。")
++        }
++        .alert("恢复当前列表中的所有会话？",
+                isPresented: $showConfirmBulkUnarchive) {
+-            Button("Unarchive") {
++            Button("取消归档") {
+                 unarchiveAllVisible()
+             }
+-            Button("Cancel", role: .cancel) {}
++            Button("取消", role: .cancel) {}
+         } message: {
+-            Text("\(archivedThreads.count) thread\(archivedThreads.count == 1 ? "" : "s") will be moved back to active.")
+-        }
+-        .alert("Delete all shown threads?",
++            Text("将恢复 \(archivedThreads.count) 个会话。")
++        }
++        .alert("删除当前列表中的所有会话？",
+                isPresented: $showConfirmBulkDelete) {
+-            Button("Delete", role: .destructive) {
++            Button("删除", role: .destructive) {
+                 deleteAllVisible()
+             }
+-            Button("Cancel", role: .cancel) {}
++            Button("取消", role: .cancel) {}
+         } message: {
+-            Text("This permanently deletes \(archivedThreads.count) thread\(archivedThreads.count == 1 ? "" : "s") from the desktop server.")
++            Text("将从桌面服务器永久删除 \(archivedThreads.count) 个会话。")
+         }
+     }
+ 
+@@ -100,7 +100,7 @@
+             }
+             VStack(alignment: .leading, spacing: 2) {
+                 T3WordmarkLabel()
+-                Text("\(archivedThreads.count) thread\(archivedThreads.count == 1 ? "" : "s")")
++                Text("\(archivedThreads.count) 个会话")
+                     .font(T3Typography.footnote)
+                     .foregroundStyle(T3Color.textTertiary)
+             }
+@@ -155,12 +155,12 @@
+                         .stroke(T3Color.separator, lineWidth: 0.5)
+                 )
+             Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+-                 ? "No archived threads"
+-                 : "No matches")
++                 ? "暂无已归档会话"
++                 : "没有匹配结果")
+                 .font(T3Typography.title)
+             Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+-                 ? "Archive threads from the chat list to keep them around without cluttering your active conversations."
+-                 : "Try a different search term or clear the filter.")
++                 ? "可以在聊天列表中归档会话，方便以后查阅，让当前列表更清晰。"
++                 : "请尝试其他关键词，或清除筛选条件。")
+                 .font(T3Typography.callout)
+                 .foregroundStyle(T3Color.textSecondary)
+                 .multilineTextAlignment(.center)
+@@ -187,7 +187,7 @@
+                             Button {
+                                 unarchive(thread: thread)
+                             } label: {
+-                                Label("Unarchive", systemImage: "tray.and.arrow.up")
++                                Label("取消归档", systemImage: "tray.and.arrow.up")
+                             }
+                             .tint(T3Color.success)
+                         }
+@@ -195,19 +195,19 @@
+                             Button(role: .destructive) {
+                                 pendingDeleteThread = thread
+                             } label: {
+-                                Label("Delete", systemImage: "trash")
++                                Label("删除", systemImage: "trash")
+                             }
+                         }
+                         .contextMenu {
+                             Button {
+                                 unarchive(thread: thread)
+                             } label: {
+-                                Label("Unarchive", systemImage: "tray.and.arrow.up")
++                                Label("取消归档", systemImage: "tray.and.arrow.up")
+                             }
+                             Button(role: .destructive) {
+                                 pendingDeleteThread = thread
+                             } label: {
+-                                Label("Delete", systemImage: "trash")
++                                Label("删除", systemImage: "trash")
+                             }
+                         }
+                     }
+@@ -234,7 +234,7 @@
+                             Button {
+                                 unarchive(thread: thread)
+                             } label: {
+-                                Label("Unarchive", systemImage: "tray.and.arrow.up")
++                                Label("取消归档", systemImage: "tray.and.arrow.up")
+                             }
+                             .tint(T3Color.success)
+                         }
+@@ -242,12 +242,12 @@
+                             Button(role: .destructive) {
+                                 pendingDeleteThread = thread
+                             } label: {
+-                                Label("Delete", systemImage: "trash")
++                                Label("删除", systemImage: "trash")
+                             }
+                         }
+                     }
+                 } header: {
+-                    Text("UNKNOWN PROJECT")
++                    Text("未知项目")
+                         .font(T3Typography.caption)
+                         .tracking(0.6)
+                         .foregroundStyle(T3Color.textTertiary)
+@@ -268,7 +268,7 @@
+             do {
+                 try await client.unarchiveThread(threadId: thread.id)
+             } catch {
+-                await MainActor.run { actionError = error.localizedDescription }
++                await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
+             }
+         }
+     }
+@@ -279,7 +279,7 @@
+             do {
+                 try await client.deleteThread(threadId: thread.id)
+             } catch {
+-                await MainActor.run { actionError = error.localizedDescription }
++                await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
+             }
+         }
+     }
+@@ -292,7 +292,7 @@
+                 do {
+                     try await client.unarchiveThread(threadId: thread.id)
+                 } catch {
+-                    await MainActor.run { actionError = error.localizedDescription }
++                    await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
+                     break
+                 }
+             }
+@@ -307,7 +307,7 @@
+                 do {
+                     try await client.deleteThread(threadId: thread.id)
+                 } catch {
+-                    await MainActor.run { actionError = error.localizedDescription }
++                    await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
+                     break
+                 }
+             }
+--- a/T3 Code/T3 Code/Features/Threads/NewThreadView.swift
++++ b/T3 Code/T3 Code/Features/Threads/NewThreadView.swift
+@@ -81,7 +81,7 @@
+             }
+             VStack(alignment: .leading, spacing: 2) {
+                 T3WordmarkLabel()
+-                Text("Spin up a new conversation")
++                Text("开始新的对话")
+                     .font(T3Typography.footnote)
+                     .foregroundStyle(T3Color.textTertiary)
+             }
+@@ -98,7 +98,7 @@
+                 if isCreating {
+                     ProgressView().controlSize(.small).tint(.white)
+                 } else {
+-                    Text("Create")
++                    Text("创建")
+                         .font(.system(size: 14, weight: .semibold))
+                 }
+             }
+@@ -117,17 +117,17 @@
+     @ViewBuilder
+     private var projectSection: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Project")
++            T3Style.SectionHeader(title: "项目")
+             T3Style.Card(padding: T3Spacing.md) {
+                 if env.threadList.projects.isEmpty {
+-                    Text("No projects are available from the desktop server.")
++                    Text("桌面服务器没有可用项目。")
+                         .font(T3Typography.callout)
+                         .foregroundStyle(T3Color.textSecondary)
+                         .padding(.vertical, T3Spacing.sm)
+                 } else {
+                     HStack {
+                         VStack(alignment: .leading, spacing: 2) {
+-                            Text(selectedProject?.title ?? "Select project")
++                            Text(selectedProject?.title ?? "选择项目")
+                                 .font(T3Typography.body)
+                                 .foregroundStyle(T3Color.textPrimary)
+                             if let project = selectedProject {
+@@ -168,7 +168,7 @@
+ 
+     private var messageSection: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Message")
++            T3Style.SectionHeader(title: "消息")
+             T3Style.Card(padding: T3Spacing.md) {
+                 VStack(alignment: .leading, spacing: T3Spacing.sm) {
+                     if !attachments.isEmpty {
+@@ -185,7 +185,7 @@
+                     VStack(alignment: .leading, spacing: T3Spacing.xs) {
+                         ZStack(alignment: .topLeading) {
+                             if prompt.isEmpty {
+-                                Text("Ask T3 Code…")
++                                Text("向 T3 Code 提问…")
+                                     .foregroundStyle(T3Color.textTertiary)
+                                     .font(T3Typography.body)
+                                     .padding(.top, 8)
+@@ -202,7 +202,7 @@
+                             PhotosPicker(selection: $pickerItems,
+                                          maxSelectionCount: maxAttachments,
+                                          matching: .images) {
+-                                Label("Photos", systemImage: "paperclip")
++                                Label("照片", systemImage: "paperclip")
+                                     .font(T3Typography.footnote)
+                                     .foregroundStyle(attachments.count >= maxAttachments
+                                                      ? T3Color.textTertiary
+@@ -226,7 +226,7 @@
+ 
+     private var modelSection: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Model")
++            T3Style.SectionHeader(title: "模型")
+             T3Style.Card(padding: T3Spacing.md) {
+                 if usableProviders.isEmpty {
+                     Text(providerEmptyMessage)
+@@ -239,7 +239,7 @@
+                         showModelPicker = true
+                     } label: {
+                         HStack {
+-                            Text("Model")
++                            Text("模型")
+                                 .font(T3Typography.body)
+                                 .foregroundStyle(T3Color.textPrimary)
+                             Spacer()
+@@ -286,7 +286,7 @@
+ 
+     private var newThreadModelSummary: String {
+         guard let provider = selectedProvider, !selectedModel.isEmpty else {
+-            return "Choose model"
++            return "选择模型"
+         }
+         let name = provider.modelLabel(selectedModel)
+         let brand = provider.brandDisplayName
+@@ -304,16 +304,16 @@
+ 
+     private var modeSection: some View {
+         VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-            T3Style.SectionHeader(title: "Mode")
++            T3Style.SectionHeader(title: "模式")
+             T3Style.Card {
+                 VStack(alignment: .leading, spacing: T3Spacing.lg) {
+                     VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-                        Text("Chat mode")
++                        Text("会话模式")
+                             .font(T3Typography.callout)
+                             .foregroundStyle(T3Color.textSecondary)
+-                        Picker("Chat mode", selection: $interactionMode) {
+-                            Text("Build").tag(ProviderInteractionMode.default)
+-                            Text("Plan").tag(ProviderInteractionMode.plan)
++                        Picker("会话模式", selection: $interactionMode) {
++                            Text("执行").tag(ProviderInteractionMode.default)
++                            Text("规划").tag(ProviderInteractionMode.plan)
+                         }
+                         .pickerStyle(.segmented)
+                         .disabled(selectedProvider?.showInteractionModeToggle == false)
+@@ -322,13 +322,13 @@
+                     Divider().overlay(T3Color.separator)
+ 
+                     VStack(alignment: .leading, spacing: T3Spacing.sm) {
+-                        Text("Access")
++                        Text("权限")
+                             .font(T3Typography.callout)
+                             .foregroundStyle(T3Color.textSecondary)
+-                        Picker("Access", selection: $runtimeMode) {
+-                            Text("Supervised").tag(RuntimeMode.approvalRequired)
+-                            Text("Auto edits").tag(RuntimeMode.autoAcceptEdits)
+-                            Text("Full access").tag(RuntimeMode.fullAccess)
++                        Picker("权限", selection: $runtimeMode) {
++                            Text("逐项审批").tag(RuntimeMode.approvalRequired)
++                            Text("自动编辑").tag(RuntimeMode.autoAcceptEdits)
++                            Text("完全访问").tag(RuntimeMode.fullAccess)
+                         }
+                         .pickerStyle(.segmented)
+                     }
+@@ -360,8 +360,8 @@
+             return error
+         }
+         return env.serverConfig == nil
+-            ? "Loading providers…"
+-            : "No installed, authenticated providers are available."
++            ? "正在加载服务商…"
++            : "没有已安装并完成认证的可用服务商。"
+     }
+ 
+     private var canCreate: Bool {
+@@ -442,7 +442,7 @@
+                 dismiss()
+             }
+         } catch {
+-            await MainActor.run { errorMessage = error.localizedDescription }
++            await MainActor.run { errorMessage = ChineseLocalization.errorDescription(error) }
+         }
+     }
+ }
+--- a/T3 Code/T3 Code/Features/Threads/ThreadRow.swift
++++ b/T3 Code/T3 Code/Features/Threads/ThreadRow.swift
+@@ -108,6 +108,7 @@
+     private var relativeDate: String {
+         let date = thread.latestUserMessageAt ?? thread.updatedAt
+         let formatter = RelativeDateTimeFormatter()
++        formatter.locale = Locale(identifier: "zh_Hans_CN")
+         formatter.unitsStyle = .abbreviated
+         return formatter.localizedString(for: date, relativeTo: Date())
+     }
+--- a/T3 Code/T3 Code/Features/Threads/ThreadsListView.swift
++++ b/T3 Code/T3 Code/Features/Threads/ThreadsListView.swift
+@@ -1,8 +1,8 @@
+ import SwiftUI
+ 
+ enum ThreadSortOrder: String, CaseIterable {
+-    case recent = "Recent"
+-    case name   = "Name"
++    case recent = "最近更新"
++    case name   = "名称"
+ }
+ 
+ struct ThreadsListView: View {
+@@ -47,26 +47,26 @@
+                     SettingsView(isModal: true)
+                         .environment(env)
+                 }
+-                .alert("Couldn't update thread",
++                .alert("更新会话失败",
+                        isPresented: Binding(get: { actionError != nil },
+                                             set: { if !$0 { actionError = nil } })) {
+-                    Button("OK", role: .cancel) { actionError = nil }
++                    Button("好", role: .cancel) { actionError = nil }
+                 } message: {
+                     Text(actionError ?? "")
+                 }
+-                .confirmationDialog("Delete this thread?",
++                .confirmationDialog("删除此会话？",
+                                     isPresented: Binding(get: { pendingDeleteThread != nil },
+                                                          set: { if !$0 { pendingDeleteThread = nil } }),
+                                     titleVisibility: .visible,
+                                     presenting: pendingDeleteThread) { thread in
+-                    Button("Delete", role: .destructive) {
++                    Button("删除", role: .destructive) {
+                         let target = thread
+                         pendingDeleteThread = nil
+                         delete(thread: target)
+                     }
+-                    Button("Cancel", role: .cancel) { pendingDeleteThread = nil }
++                    Button("取消", role: .cancel) { pendingDeleteThread = nil }
+                 } message: { _ in
+-                    Text("This thread will be permanently removed from the desktop server.")
++                    Text("此会话将从桌面服务器永久删除。")
+                 }
+         }
+     }
+@@ -104,17 +104,17 @@
+                         RoundedRectangle(cornerRadius: T3Radius.md, style: .continuous)
+                             .stroke(T3Color.separator, lineWidth: 0.5)
+                     )
+-                Text("No Threads")
++                Text("暂无会话")
+                     .font(T3Typography.title)
+                 Text(env.connectionStatus == .connected
+                      ? emptyStateMessage
+-                     : "Waiting to connect to the T3 Code server…")
++                     : "正在等待连接 T3 Code 服务器…")
+                     .font(T3Typography.callout)
+                     .foregroundStyle(T3Color.textSecondary)
+                     .multilineTextAlignment(.center)
+                     .padding(.horizontal, T3Spacing.xl)
+                 if env.connectionStatus == .connected && !env.threadList.projects.isEmpty {
+-                    T3ToolbarButton(title: "New Thread",
++                    T3ToolbarButton(title: "新建会话",
+                                     systemImage: "plus") {
+                         showNewThread = true
+                     }
+@@ -137,8 +137,8 @@
+ 
+     private var emptyStateMessage: String {
+         env.threadList.projects.isEmpty
+-            ? "No projects are available from the desktop server yet."
+-            : "Create a mobile thread from one of your desktop projects."
++            ? "桌面服务器暂时没有可用项目。"
++            : "从桌面端项目中新建一个会话。"
+     }
+ 
+     // MARK: - Populated list
+@@ -174,7 +174,7 @@
+         HStack(spacing: T3Spacing.sm) {
+             VStack(alignment: .leading, spacing: 3) {
+                 T3WordmarkLabel()
+-                Text("PROJECTS")
++                Text("项目")
+                     .font(.system(size: 12, weight: .semibold))
+                     .tracking(0.6)
+                     .foregroundStyle(T3Color.textTertiary)
+@@ -238,12 +238,12 @@
+     private var quickActionsSheet: some View {
+         NavigationStack {
+             List {
+-                Section("Actions") {
++                Section("操作") {
+                     Button {
+                         showQuickActions = false
+                         showNewThread = true
+                     } label: {
+-                        Label("New Thread", systemImage: "plus.bubble")
++                        Label("新建会话", systemImage: "plus.bubble")
+                     }
+                     .disabled(env.threadList.projects.isEmpty || env.connectionStatus != .connected)
+ 
+@@ -251,26 +251,26 @@
+                         showQuickActions = false
+                         showArchivedView = true
+                     } label: {
+-                        Label("Archived Threads", systemImage: "archivebox")
++                        Label("已归档会话", systemImage: "archivebox")
+                     }
+ 
+                     Button {
+                         showQuickActions = false
+                         showSettingsView = true
+                     } label: {
+-                        Label("Settings", systemImage: "gearshape")
++                        Label("设置", systemImage: "gearshape")
+                     }
+ 
+                     Button {
+                         showQuickActions = false
+                         Task { await env.refreshServerConfig() }
+                     } label: {
+-                        Label("Refresh Server Config", systemImage: "arrow.clockwise")
++                        Label("刷新服务器配置", systemImage: "arrow.clockwise")
+                     }
+                     .disabled(env.client == nil)
+                 }
+                 if !filteredQuickThreads.isEmpty {
+-                    Section("Recent Threads") {
++                    Section("最近会话") {
+                         ForEach(filteredQuickThreads, id: \.id) { thread in
+                             Button {
+                                 showQuickActions = false
+@@ -283,7 +283,7 @@
+                                         .font(T3Typography.body)
+                                         .foregroundStyle(T3Color.textPrimary)
+                                         .lineLimit(1)
+-                                    Text(env.threadList.project(id: thread.projectId)?.title ?? "Unknown project")
++                                    Text(env.threadList.project(id: thread.projectId)?.title ?? "未知项目")
+                                         .font(T3Typography.footnote)
+                                         .foregroundStyle(T3Color.textTertiary)
+                                         .lineLimit(1)
+@@ -293,8 +293,8 @@
+                     }
+                 }
+             }
+-            .searchable(text: $quickActionQuery, prompt: "Search actions and threads")
+-            .navigationTitle("Quick Actions")
++            .searchable(text: $quickActionQuery, prompt: "搜索操作和会话")
++            .navigationTitle("快捷操作")
+             .navigationBarTitleDisplayMode(.inline)
+         }
+     }
+@@ -367,7 +367,7 @@
+                     } label: {
+                         HStack(spacing: T3Spacing.sm) {
+                             Spacer().frame(width: 16 + T3Spacing.sm + 14 + T3Spacing.sm)
+-                            Text("Show more")
++                            Text("显示更多")
+                                 .font(.system(size: 14, weight: .regular))
+                                 .foregroundStyle(T3Color.textSecondary)
+                             Spacer(minLength: 0)
+@@ -417,12 +417,12 @@
+             Button {
+                 archive(thread: thread)
+             } label: {
+-                Label("Archive", systemImage: "archivebox")
++                Label("归档", systemImage: "archivebox")
+             }
+             Button(role: .destructive) {
+                 pendingDeleteThread = thread
+             } label: {
+-                Label("Delete", systemImage: "trash")
++                Label("删除", systemImage: "trash")
+             }
+         }
+     }
+@@ -470,6 +470,7 @@
+     private func relativeDate(for thread: ThreadShell) -> String {
+         let date = thread.latestUserMessageAt ?? thread.updatedAt
+         let formatter = RelativeDateTimeFormatter()
++        formatter.locale = Locale(identifier: "zh_Hans_CN")
+         formatter.unitsStyle = .abbreviated
+         return formatter.localizedString(for: date, relativeTo: Date())
+     }
+@@ -497,7 +498,7 @@
+             do {
+                 try await client.archiveThread(threadId: thread.id)
+             } catch {
+-                await MainActor.run { actionError = error.localizedDescription }
++                await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
+             }
+         }
+     }
+@@ -508,7 +509,7 @@
+             do {
+                 try await client.deleteThread(threadId: thread.id)
+             } catch {
+-                await MainActor.run { actionError = error.localizedDescription }
++                await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
+             }
+         }
+     }
+--- a/T3 Code/T3 Code/T3_CodeApp.swift
++++ b/T3 Code/T3 Code/T3_CodeApp.swift
+@@ -9,6 +9,7 @@
+         WindowGroup {
+             AppRoot()
+                 .environment(env)
++                .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
+                 .tint(AppAccent.color(for: accentRaw))
+         }
+     }
+--- a/T3 Code/T3 Code.xcodeproj/project.pbxproj
++++ b/T3 Code/T3 Code.xcodeproj/project.pbxproj
+@@ -86,9 +86,10 @@
+ 				};
+ 			};
+ 			buildConfigurationList = 609942FD2FADCC44007535A7 /* Build configuration list for PBXProject "T3 Code" */;
+-			developmentRegion = en;
++			developmentRegion = "zh-Hans";
+ 			hasScannedForEncodings = 0;
+ 			knownRegions = (
++				"zh-Hans",
+ 				en,
+ 				Base,
+ 			);
+@@ -178,7 +179,7 @@
+ 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+ 				GCC_WARN_UNUSED_FUNCTION = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
++				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+ 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+ 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+ 				MTL_FAST_MATH = YES;
+@@ -236,7 +237,7 @@
+ 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+ 				GCC_WARN_UNUSED_FUNCTION = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
++				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+ 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+ 				MTL_ENABLE_DEBUG_INFO = NO;
+ 				MTL_FAST_MATH = YES;
+@@ -252,12 +253,12 @@
+ 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+ 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+ 				CODE_SIGN_STYLE = Automatic;
+-				CURRENT_PROJECT_VERSION = 1;
++				CURRENT_PROJECT_VERSION = 2;
+ 				DEVELOPMENT_TEAM = 6D56G8D849;
+ 				ENABLE_PREVIEWS = YES;
+ 				GENERATE_INFOPLIST_FILE = NO;
+ 				INFOPLIST_FILE = Info.plist;
+-				INFOPLIST_KEY_CFBundleDisplayName = "T3 Code";
++				INFOPLIST_KEY_CFBundleDisplayName = "T3 Code 中文";
+ 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+ 				LD_RUNPATH_SEARCH_PATHS = (
+ 					"$(inherited)",
+@@ -281,12 +282,12 @@
+ 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+ 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+ 				CODE_SIGN_STYLE = Automatic;
+-				CURRENT_PROJECT_VERSION = 1;
++				CURRENT_PROJECT_VERSION = 2;
+ 				DEVELOPMENT_TEAM = 6D56G8D849;
+ 				ENABLE_PREVIEWS = YES;
+ 				GENERATE_INFOPLIST_FILE = NO;
+ 				INFOPLIST_FILE = Info.plist;
+-				INFOPLIST_KEY_CFBundleDisplayName = "T3 Code";
++				INFOPLIST_KEY_CFBundleDisplayName = "T3 Code 中文";
+ 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+ 				LD_RUNPATH_SEARCH_PATHS = (
+ 					"$(inherited)",
