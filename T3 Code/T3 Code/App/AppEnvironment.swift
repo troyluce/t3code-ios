@@ -180,7 +180,7 @@ final class AppEnvironment {
             }
         } catch {
             await MainActor.run {
-                self.serverConfigError = error.localizedDescription
+                self.serverConfigError = ChineseLocalization.errorDescription(error)
             }
         }
     }

@@ -9,6 +9,7 @@ struct T3_CodeApp: App {
         WindowGroup {
             AppRoot()
                 .environment(env)
+                .environment(\.locale, Locale(identifier: "zh_Hans_CN"))
                 .tint(AppAccent.color(for: accentRaw))
         }
     }

@@ -1,9 +1,9 @@
 import SwiftUI
 
 private enum ArchivedSortOrder: String, CaseIterable {
-    case recent = "Recently Archived"
-    case title = "Title"
-    case project = "Project"
+    case recent = "最近归档"
+    case title = "标题"
+    case project = "项目"
 }
 
 struct ArchivedThreadsView: View {
@@ -36,56 +36,56 @@ struct ArchivedThreadsView: View {
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search archived threads")
-        .alert("Couldn't update thread",
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索已归档会话")
+        .alert("更新会话失败",
                isPresented: Binding(get: { actionError != nil },
                                     set: { if !$0 { actionError = nil } })) {
-            Button("OK", role: .cancel) { actionError = nil }
+            Button("好", role: .cancel) { actionError = nil }
         } message: {
             Text(actionError ?? "")
         }
-        .confirmationDialog("Delete this thread?",
+        .confirmationDialog("删除此会话？",
                             isPresented: Binding(get: { pendingDeleteThread != nil },
                                                  set: { if !$0 { pendingDeleteThread = nil } }),
                             titleVisibility: .visible,
                             presenting: pendingDeleteThread) { thread in
-            Button("Delete", role: .destructive) {
+            Button("删除", role: .destructive) {
                 let target = thread
                 pendingDeleteThread = nil
                 delete(thread: target)
             }
-            Button("Cancel", role: .cancel) { pendingDeleteThread = nil }
+            Button("取消", role: .cancel) { pendingDeleteThread = nil }
         } message: { _ in
-            Text("This thread will be permanently removed from the desktop server.")
+            Text("此会话将从桌面服务器永久删除。")
         }
-        .confirmationDialog("Bulk actions", isPresented: $showBulkActionDialog, titleVisibility: .visible) {
-            Button("Unarchive all shown") {
+        .confirmationDialog("批量操作", isPresented: $showBulkActionDialog, titleVisibility: .visible) {
+            Button("恢复当前列表中的会话") {
                 showConfirmBulkUnarchive = true
             }
-            Button("Delete all shown", role: .destructive) {
+            Button("删除当前列表中的会话", role: .destructive) {
                 showConfirmBulkDelete = true
             }
-            Button("Cancel", role: .cancel) {}
+            Button("取消", role: .cancel) {}
         } message: {
-            Text("Applies to the currently filtered archived threads.")
+            Text("操作将应用于当前筛选结果中的所有已归档会话。")
         }
-        .alert("Unarchive all shown threads?",
+        .alert("恢复当前列表中的所有会话？",
                isPresented: $showConfirmBulkUnarchive) {
-            Button("Unarchive") {
+            Button("取消归档") {
                 unarchiveAllVisible()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("取消", role: .cancel) {}
         } message: {
-            Text("\(archivedThreads.count) thread\(archivedThreads.count == 1 ? "" : "s") will be moved back to active.")
+            Text("将恢复 \(archivedThreads.count) 个会话。")
         }
-        .alert("Delete all shown threads?",
+        .alert("删除当前列表中的所有会话？",
                isPresented: $showConfirmBulkDelete) {
-            Button("Delete", role: .destructive) {
+            Button("删除", role: .destructive) {
                 deleteAllVisible()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("取消", role: .cancel) {}
         } message: {
-            Text("This permanently deletes \(archivedThreads.count) thread\(archivedThreads.count == 1 ? "" : "s") from the desktop server.")
+            Text("将从桌面服务器永久删除 \(archivedThreads.count) 个会话。")
         }
     }
 
@@ -100,7 +100,7 @@ struct ArchivedThreadsView: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 T3WordmarkLabel()
-                Text("\(archivedThreads.count) thread\(archivedThreads.count == 1 ? "" : "s")")
+                Text("\(archivedThreads.count) 个会话")
                     .font(T3Typography.footnote)
                     .foregroundStyle(T3Color.textTertiary)
             }
@@ -155,12 +155,12 @@ struct ArchivedThreadsView: View {
                         .stroke(T3Color.separator, lineWidth: 0.5)
                 )
             Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                 ? "No archived threads"
-                 : "No matches")
+                 ? "暂无已归档会话"
+                 : "没有匹配结果")
                 .font(T3Typography.title)
             Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                 ? "Archive threads from the chat list to keep them around without cluttering your active conversations."
-                 : "Try a different search term or clear the filter.")
+                 ? "可以在聊天列表中归档会话，方便以后查阅，让当前列表更清晰。"
+                 : "请尝试其他关键词，或清除筛选条件。")
                 .font(T3Typography.callout)
                 .foregroundStyle(T3Color.textSecondary)
                 .multilineTextAlignment(.center)
@@ -187,7 +187,7 @@ struct ArchivedThreadsView: View {
                             Button {
                                 unarchive(thread: thread)
                             } label: {
-                                Label("Unarchive", systemImage: "tray.and.arrow.up")
+                                Label("取消归档", systemImage: "tray.and.arrow.up")
                             }
                             .tint(T3Color.success)
                         }
@@ -195,19 +195,19 @@ struct ArchivedThreadsView: View {
                             Button(role: .destructive) {
                                 pendingDeleteThread = thread
                             } label: {
-                                Label("Delete", systemImage: "trash")
+                                Label("删除", systemImage: "trash")
                             }
                         }
                         .contextMenu {
                             Button {
                                 unarchive(thread: thread)
                             } label: {
-                                Label("Unarchive", systemImage: "tray.and.arrow.up")
+                                Label("取消归档", systemImage: "tray.and.arrow.up")
                             }
                             Button(role: .destructive) {
                                 pendingDeleteThread = thread
                             } label: {
-                                Label("Delete", systemImage: "trash")
+                                Label("删除", systemImage: "trash")
                             }
                         }
                     }
@@ -234,7 +234,7 @@ struct ArchivedThreadsView: View {
                             Button {
                                 unarchive(thread: thread)
                             } label: {
-                                Label("Unarchive", systemImage: "tray.and.arrow.up")
+                                Label("取消归档", systemImage: "tray.and.arrow.up")
                             }
                             .tint(T3Color.success)
                         }
@@ -242,12 +242,12 @@ struct ArchivedThreadsView: View {
                             Button(role: .destructive) {
                                 pendingDeleteThread = thread
                             } label: {
-                                Label("Delete", systemImage: "trash")
+                                Label("删除", systemImage: "trash")
                             }
                         }
                     }
                 } header: {
-                    Text("UNKNOWN PROJECT")
+                    Text("未知项目")
                         .font(T3Typography.caption)
                         .tracking(0.6)
                         .foregroundStyle(T3Color.textTertiary)
@@ -268,7 +268,7 @@ struct ArchivedThreadsView: View {
             do {
                 try await client.unarchiveThread(threadId: thread.id)
             } catch {
-                await MainActor.run { actionError = error.localizedDescription }
+                await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
             }
         }
     }
@@ -279,7 +279,7 @@ struct ArchivedThreadsView: View {
             do {
                 try await client.deleteThread(threadId: thread.id)
             } catch {
-                await MainActor.run { actionError = error.localizedDescription }
+                await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
             }
         }
     }
@@ -292,7 +292,7 @@ struct ArchivedThreadsView: View {
                 do {
                     try await client.unarchiveThread(threadId: thread.id)
                 } catch {
-                    await MainActor.run { actionError = error.localizedDescription }
+                    await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
                     break
                 }
             }
@@ -307,7 +307,7 @@ struct ArchivedThreadsView: View {
                 do {
                     try await client.deleteThread(threadId: thread.id)
                 } catch {
-                    await MainActor.run { actionError = error.localizedDescription }
+                    await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
                     break
                 }
             }

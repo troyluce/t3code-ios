@@ -79,7 +79,7 @@ actor T3Connection {
         statusContinuation?.yield(.connecting)
 
         guard var wsURL = makeWebSocketURL() else {
-            statusContinuation?.yield(.error("Invalid server URL"))
+            statusContinuation?.yield(.error("服务器地址无效"))
             scheduleReconnect()
             return false
         }
@@ -178,7 +178,7 @@ actor T3Connection {
         for message in messages {
             let data = try EffectRPCEncoder.encode(message)
             guard let text = String(data: data, encoding: .utf8) else {
-                throw T3Error.requestFailed("Failed to encode RPC message")
+                throw T3Error.requestFailed("RPC 消息编码失败")
             }
             try await task.send(.string(text))
         }
@@ -262,9 +262,9 @@ actor T3Connection {
 
     private func formatConnectionError(_ error: Error) -> String {
         let nsError = error as NSError
-        var message = error.localizedDescription
+        var message = ChineseLocalization.errorDescription(error)
         if message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            message = "Connection failed"
+            message = "连接失败"
         }
         return "\(message) (\(nsError.domain) \(nsError.code))"
     }
@@ -285,11 +285,11 @@ actor T3Connection {
     private func formatCloseCode(_ code: URLSessionWebSocketTask.CloseCode) -> String {
         switch code {
         case .noStatusReceived:
-            return "server closed without a WebSocket close status"
+            return "服务器关闭连接时未提供 WebSocket 状态"
         case .abnormalClosure:
-            return "abnormal WebSocket closure"
+            return "WebSocket 连接异常关闭"
         default:
-            return "close code \(code.rawValue)"
+            return "关闭代码 \(code.rawValue)"
         }
     }
 }
@@ -307,7 +307,7 @@ private final class WebSocketSessionDelegate: NSObject, URLSessionWebSocketDeleg
             try? await Task.sleep(nanoseconds: timeoutNanoseconds)
             self?.completeOpenWait(
                 taskID: taskID,
-                result: .failure(T3Error.requestFailed("Timed out waiting for WebSocket connection"))
+                result: .failure(T3Error.requestFailed("等待 WebSocket 连接超时"))
             )
         }
         defer { timeoutTask.cancel() }
@@ -353,7 +353,7 @@ private final class WebSocketSessionDelegate: NSObject, URLSessionWebSocketDeleg
         guard !wasOpened else { return }
         completeOpenWait(
             taskID: taskID,
-            result: .failure(T3Error.requestFailed("WebSocket closed before opening"))
+            result: .failure(T3Error.requestFailed("WebSocket 在建立连接前已关闭"))
         )
     }
 
@@ -392,11 +392,11 @@ enum T3Error: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notConnected: "Not connected to T3 server"
-        case .invalidServerURL: "Invalid server URL"
-        case .pairingFailed(let msg): "Pairing failed: \(msg)"
-        case .requestFailed(let msg): "Request failed: \(msg)"
-        case .decodingFailed(let msg): "Failed to decode response: \(msg)"
+        case .notConnected: "尚未连接 T3 服务器"
+        case .invalidServerURL: "服务器地址无效"
+        case .pairingFailed(let msg): "配对失败：\(msg)"
+        case .requestFailed(let msg): "请求失败：\(msg)"
+        case .decodingFailed(let msg): "解析响应失败：\(msg)"
         }
     }
 }

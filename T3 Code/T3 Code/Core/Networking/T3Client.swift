@@ -286,7 +286,7 @@ extension T3Client {
     func getServerConfig() async throws -> ServerRuntimeConfig {
         let value = try await request(method: "server.getConfig", payload: [String: Any]())
         guard let value else {
-            throw T3Error.decodingFailed("Server returned an empty config response")
+            throw T3Error.decodingFailed("服务器返回的配置信息为空")
         }
         let data = try JSONSerialization.data(withJSONObject: value)
         return try JSONDecoder().decode(ServerRuntimeConfig.self, from: data)
@@ -453,9 +453,9 @@ extension T3Client {
         if !trimmed.isEmpty {
             seed = trimmed
         } else if let first = attachments.first {
-            seed = "Image: \(first.name)"
+            seed = "图片：\(first.name)"
         } else {
-            seed = "New thread"
+            seed = "新会话"
         }
         if seed.count <= 80 {
             return seed
@@ -468,7 +468,7 @@ extension T3Client {
     func refreshVcsStatus(cwd: String) async throws -> VcsStatusSummary {
         let payload: [String: Any] = ["cwd": cwd]
         guard let value = try await request(method: "vcs.refreshStatus", payload: payload) else {
-            throw T3Error.decodingFailed("Empty vcs.refreshStatus response")
+            throw T3Error.decodingFailed("Git 状态响应为空")
         }
         return try VcsStatusSummary.decode(from: value)
     }
@@ -476,7 +476,7 @@ extension T3Client {
     func vcsPull(cwd: String) async throws -> VcsPullSummary {
         let payload: [String: Any] = ["cwd": cwd]
         guard let value = try await request(method: "vcs.pull", payload: payload) else {
-            throw T3Error.decodingFailed("Empty vcs.pull response")
+            throw T3Error.decodingFailed("Git 拉取响应为空")
         }
         return try VcsPullSummary.decode(from: value)
     }
@@ -519,11 +519,11 @@ extension T3Client {
                         case "action_finished":
                             let result = (dict["result"] as? [String: Any]) ?? [:]
                             let toast = (result["toast"] as? [String: Any]) ?? [:]
-                            let title = (toast["title"] as? String) ?? "Action completed"
+                            let title = (toast["title"] as? String) ?? "操作完成"
                             let description = toast["description"] as? String
                             resumeOnce(.success(.init(toastTitle: title, toastDescription: description)))
                         case "action_failed":
-                            let message = (dict["message"] as? String) ?? "Git action failed."
+                            let message = (dict["message"] as? String) ?? "Git 操作失败。"
                             resumeOnce(.failure(T3Error.requestFailed(message)))
                         default:
                             break
@@ -533,7 +533,7 @@ extension T3Client {
                     Task.detached {
                         try? await Task.sleep(nanoseconds: 120_000_000_000)
                         await subscription.cancel()
-                        resumeOnce(.failure(T3Error.requestFailed("Git action timed out.")))
+                        resumeOnce(.failure(T3Error.requestFailed("Git 操作超时。")))
                     }
                 } catch {
                     resumeOnce(.failure(error))

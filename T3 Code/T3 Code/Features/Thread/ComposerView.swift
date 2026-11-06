@@ -50,7 +50,7 @@ struct ComposerView: View {
     private var textField: some View {
         ZStack(alignment: .topLeading) {
             if draft.isEmpty {
-                Text("Ask anything, @tag files/folders,\nor use / to show available commands")
+                Text("输入问题，使用 @ 引用文件或文件夹，\n使用 / 查看可用命令")
                     .foregroundStyle(T3Color.textTertiary)
                     .font(T3Typography.callout)
                     .padding(.top, 8)
@@ -117,7 +117,7 @@ struct ComposerView: View {
                     )
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Stop turn")
+            .accessibilityLabel("停止当前任务")
         } else {
             Button(action: send) {
                 Image(systemName: "arrow.up")
@@ -133,7 +133,7 @@ struct ComposerView: View {
             }
             .buttonStyle(.plain)
             .disabled(!canSend)
-            .accessibilityLabel("Send message")
+            .accessibilityLabel("发送消息")
         }
     }
 
@@ -217,7 +217,7 @@ struct ComposerView: View {
     // MARK: - Helpers
 
     private var modelName: String {
-        guard let detail = store.detail else { return "Model" }
+        guard let detail = store.detail else { return "模型" }
         return env.serverConfig?.modelDisplayLabel(selection: detail.modelSelection)
             ?? detail.modelSelection.model
     }

@@ -15,67 +15,69 @@ struct MessageTimelineView: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            ZStack(alignment: .bottomTrailing) {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: messageSpacing) {
-                        if rows.isEmpty {
-                            emptyState.padding(.top, 96)
-                        } else {
-                            ForEach(rows) { row in
-                                rowView(row)
+            GeometryReader { viewport in
+                ZStack(alignment: .bottomTrailing) {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: messageSpacing) {
+                            if rows.isEmpty {
+                                emptyState.padding(.top, 96)
+                            } else {
+                                ForEach(rows) { row in
+                                    rowView(row)
+                                }
                             }
+                            Color.clear
+                                .frame(height: 1)
+                                .id(bottomAnchor)
                         }
-                        Color.clear
-                            .frame(height: 1)
-                            .id(bottomAnchor)
+                        .padding(.horizontal, horizontalPadding)
+                        .padding(.top, T3Spacing.lg)
+                        .padding(.bottom, T3Spacing.xxl)
+                        .onGeometryChange(for: Bool.self) { geometry in
+                            geometry.frame(in: .named("messageTimeline")).maxY
+                                - viewport.size.height <= stickyThreshold
+                        } action: { near in
+                            isNearBottom = near
+                            if near { hasNewWhileScrolledUp = false }
+                        }
                     }
-                    .padding(.horizontal, horizontalPadding)
-                    .padding(.top, T3Spacing.lg)
-                    .padding(.bottom, T3Spacing.xxl)
-                }
-                .background(T3Color.surfaceGrouped)
-                .contentShape(Rectangle())
-                .scrollDismissesKeyboard(.interactively)
-                .onTapGesture {
-                    UIApplication.dismissKeyboard()
-                }
-                .onScrollGeometryChange(for: Bool.self) { geometry in
-                    let distanceFromBottom = geometry.contentSize.height
-                        - (geometry.contentOffset.y + geometry.containerSize.height)
-                    return distanceFromBottom <= stickyThreshold
-                } action: { _, near in
-                    isNearBottom = near
-                    if near { hasNewWhileScrolledUp = false }
-                }
-                .onChange(of: rows.count) { _, _ in
-                    handleStreamUpdate(proxy: proxy, animated: true)
-                }
-                .onChange(of: store.messages.last?.text) { _, _ in
-                    handleStreamUpdate(proxy: proxy, animated: false)
-                }
-                .onChange(of: store.messages.last?.attachments?.count) { _, _ in
-                    handleStreamUpdate(proxy: proxy, animated: false)
-                }
-                .onChange(of: latestActivitySignature) { _, _ in
-                    handleStreamUpdate(proxy: proxy, animated: false)
-                }
-                .onAppear {
-                    guard !didInitialScroll else { return }
-                    didInitialScroll = true
-                    DispatchQueue.main.async {
-                        proxy.scrollTo(bottomAnchor, anchor: .bottom)
+                    .background(T3Color.surfaceGrouped)
+                    .contentShape(Rectangle())
+                    .scrollDismissesKeyboard(.interactively)
+                    .onTapGesture {
+                        UIApplication.dismissKeyboard()
                     }
-                }
+                    .coordinateSpace(name: "messageTimeline")
+                    .onChange(of: rows.count) { _, _ in
+                        handleStreamUpdate(proxy: proxy, animated: true)
+                    }
+                    .onChange(of: store.messages.last?.text) { _, _ in
+                        handleStreamUpdate(proxy: proxy, animated: false)
+                    }
+                    .onChange(of: store.messages.last?.attachments?.count) { _, _ in
+                        handleStreamUpdate(proxy: proxy, animated: false)
+                    }
+                    .onChange(of: latestActivitySignature) { _, _ in
+                        handleStreamUpdate(proxy: proxy, animated: false)
+                    }
+                    .onAppear {
+                        guard !didInitialScroll else { return }
+                        didInitialScroll = true
+                        DispatchQueue.main.async {
+                            proxy.scrollTo(bottomAnchor, anchor: .bottom)
+                        }
+                    }
 
-                if !isNearBottom && !rows.isEmpty {
-                    jumpToLatestButton(proxy: proxy)
-                        .padding(.trailing, T3Spacing.lg)
-                        .padding(.bottom, T3Spacing.md)
-                        .transition(.scale.combined(with: .opacity))
+                    if !isNearBottom && !rows.isEmpty {
+                        jumpToLatestButton(proxy: proxy)
+                            .padding(.trailing, T3Spacing.lg)
+                            .padding(.bottom, T3Spacing.md)
+                            .transition(.scale.combined(with: .opacity))
+                    }
                 }
+                .animation(.spring(response: 0.32, dampingFraction: 0.85), value: isNearBottom)
+                .animation(.easeInOut(duration: 0.2), value: hasNewWhileScrolledUp)
             }
-            .animation(.spring(response: 0.32, dampingFraction: 0.85), value: isNearBottom)
-            .animation(.easeInOut(duration: 0.2), value: hasNewWhileScrolledUp)
         }
     }
 
@@ -161,7 +163,7 @@ struct MessageTimelineView: View {
 
     private func jumpToLatestButton(proxy: ScrollViewProxy) -> some View {
         let isStreaming = store.messages.last?.streaming == true
-        let label = hasNewWhileScrolledUp || isStreaming ? "New message" : "Jump to latest"
+        let label = hasNewWhileScrolledUp || isStreaming ? "新消息" : "回到最新消息"
         return Button {
             hasNewWhileScrolledUp = false
             withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
@@ -223,10 +225,10 @@ struct MessageTimelineView: View {
                         .stroke(T3Color.separator, lineWidth: 0.5)
                 )
             VStack(spacing: T3Spacing.xs) {
-                Text("Ready")
+                Text("就绪")
                     .font(T3Typography.headline)
                     .foregroundStyle(T3Color.textPrimary)
-                Text("Send a message to continue this thread.")
+                Text("发送消息，继续此会话。")
                     .font(T3Typography.callout)
                     .foregroundStyle(T3Color.textSecondary)
             }

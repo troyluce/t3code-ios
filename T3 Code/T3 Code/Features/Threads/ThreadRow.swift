@@ -108,6 +108,7 @@ struct ThreadRow: View {
     private var relativeDate: String {
         let date = thread.latestUserMessageAt ?? thread.updatedAt
         let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: "zh_Hans_CN")
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: date, relativeTo: Date())
     }

@@ -1,8 +1,8 @@
 import SwiftUI
 
 enum ThreadSortOrder: String, CaseIterable {
-    case recent = "Recent"
-    case name   = "Name"
+    case recent = "最近更新"
+    case name   = "名称"
 }
 
 struct ThreadsListView: View {
@@ -47,26 +47,26 @@ struct ThreadsListView: View {
                     SettingsView(isModal: true)
                         .environment(env)
                 }
-                .alert("Couldn't update thread",
+                .alert("更新会话失败",
                        isPresented: Binding(get: { actionError != nil },
                                             set: { if !$0 { actionError = nil } })) {
-                    Button("OK", role: .cancel) { actionError = nil }
+                    Button("好", role: .cancel) { actionError = nil }
                 } message: {
                     Text(actionError ?? "")
                 }
-                .confirmationDialog("Delete this thread?",
+                .confirmationDialog("删除此会话？",
                                     isPresented: Binding(get: { pendingDeleteThread != nil },
                                                          set: { if !$0 { pendingDeleteThread = nil } }),
                                     titleVisibility: .visible,
                                     presenting: pendingDeleteThread) { thread in
-                    Button("Delete", role: .destructive) {
+                    Button("删除", role: .destructive) {
                         let target = thread
                         pendingDeleteThread = nil
                         delete(thread: target)
                     }
-                    Button("Cancel", role: .cancel) { pendingDeleteThread = nil }
+                    Button("取消", role: .cancel) { pendingDeleteThread = nil }
                 } message: { _ in
-                    Text("This thread will be permanently removed from the desktop server.")
+                    Text("此会话将从桌面服务器永久删除。")
                 }
         }
     }
@@ -104,17 +104,17 @@ struct ThreadsListView: View {
                         RoundedRectangle(cornerRadius: T3Radius.md, style: .continuous)
                             .stroke(T3Color.separator, lineWidth: 0.5)
                     )
-                Text("No Threads")
+                Text("暂无会话")
                     .font(T3Typography.title)
                 Text(env.connectionStatus == .connected
                      ? emptyStateMessage
-                     : "Waiting to connect to the T3 Code server…")
+                     : "正在等待连接 T3 Code 服务器…")
                     .font(T3Typography.callout)
                     .foregroundStyle(T3Color.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, T3Spacing.xl)
                 if env.connectionStatus == .connected && !env.threadList.projects.isEmpty {
-                    T3ToolbarButton(title: "New Thread",
+                    T3ToolbarButton(title: "新建会话",
                                     systemImage: "plus") {
                         showNewThread = true
                     }
@@ -137,8 +137,8 @@ struct ThreadsListView: View {
 
     private var emptyStateMessage: String {
         env.threadList.projects.isEmpty
-            ? "No projects are available from the desktop server yet."
-            : "Create a mobile thread from one of your desktop projects."
+            ? "桌面服务器暂时没有可用项目。"
+            : "从桌面端项目中新建一个会话。"
     }
 
     // MARK: - Populated list
@@ -174,7 +174,7 @@ struct ThreadsListView: View {
         HStack(spacing: T3Spacing.sm) {
             VStack(alignment: .leading, spacing: 3) {
                 T3WordmarkLabel()
-                Text("PROJECTS")
+                Text("项目")
                     .font(.system(size: 12, weight: .semibold))
                     .tracking(0.6)
                     .foregroundStyle(T3Color.textTertiary)
@@ -238,12 +238,12 @@ struct ThreadsListView: View {
     private var quickActionsSheet: some View {
         NavigationStack {
             List {
-                Section("Actions") {
+                Section("操作") {
                     Button {
                         showQuickActions = false
                         showNewThread = true
                     } label: {
-                        Label("New Thread", systemImage: "plus.bubble")
+                        Label("新建会话", systemImage: "plus.bubble")
                     }
                     .disabled(env.threadList.projects.isEmpty || env.connectionStatus != .connected)
 
@@ -251,26 +251,26 @@ struct ThreadsListView: View {
                         showQuickActions = false
                         showArchivedView = true
                     } label: {
-                        Label("Archived Threads", systemImage: "archivebox")
+                        Label("已归档会话", systemImage: "archivebox")
                     }
 
                     Button {
                         showQuickActions = false
                         showSettingsView = true
                     } label: {
-                        Label("Settings", systemImage: "gearshape")
+                        Label("设置", systemImage: "gearshape")
                     }
 
                     Button {
                         showQuickActions = false
                         Task { await env.refreshServerConfig() }
                     } label: {
-                        Label("Refresh Server Config", systemImage: "arrow.clockwise")
+                        Label("刷新服务器配置", systemImage: "arrow.clockwise")
                     }
                     .disabled(env.client == nil)
                 }
                 if !filteredQuickThreads.isEmpty {
-                    Section("Recent Threads") {
+                    Section("最近会话") {
                         ForEach(filteredQuickThreads, id: \.id) { thread in
                             Button {
                                 showQuickActions = false
@@ -283,7 +283,7 @@ struct ThreadsListView: View {
                                         .font(T3Typography.body)
                                         .foregroundStyle(T3Color.textPrimary)
                                         .lineLimit(1)
-                                    Text(env.threadList.project(id: thread.projectId)?.title ?? "Unknown project")
+                                    Text(env.threadList.project(id: thread.projectId)?.title ?? "未知项目")
                                         .font(T3Typography.footnote)
                                         .foregroundStyle(T3Color.textTertiary)
                                         .lineLimit(1)
@@ -293,8 +293,8 @@ struct ThreadsListView: View {
                     }
                 }
             }
-            .searchable(text: $quickActionQuery, prompt: "Search actions and threads")
-            .navigationTitle("Quick Actions")
+            .searchable(text: $quickActionQuery, prompt: "搜索操作和会话")
+            .navigationTitle("快捷操作")
             .navigationBarTitleDisplayMode(.inline)
         }
     }
@@ -367,7 +367,7 @@ struct ThreadsListView: View {
                     } label: {
                         HStack(spacing: T3Spacing.sm) {
                             Spacer().frame(width: 16 + T3Spacing.sm + 14 + T3Spacing.sm)
-                            Text("Show more")
+                            Text("显示更多")
                                 .font(.system(size: 14, weight: .regular))
                                 .foregroundStyle(T3Color.textSecondary)
                             Spacer(minLength: 0)
@@ -417,12 +417,12 @@ struct ThreadsListView: View {
             Button {
                 archive(thread: thread)
             } label: {
-                Label("Archive", systemImage: "archivebox")
+                Label("归档", systemImage: "archivebox")
             }
             Button(role: .destructive) {
                 pendingDeleteThread = thread
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label("删除", systemImage: "trash")
             }
         }
     }
@@ -470,6 +470,7 @@ struct ThreadsListView: View {
     private func relativeDate(for thread: ThreadShell) -> String {
         let date = thread.latestUserMessageAt ?? thread.updatedAt
         let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: "zh_Hans_CN")
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: date, relativeTo: Date())
     }
@@ -497,7 +498,7 @@ struct ThreadsListView: View {
             do {
                 try await client.archiveThread(threadId: thread.id)
             } catch {
-                await MainActor.run { actionError = error.localizedDescription }
+                await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
             }
         }
     }
@@ -508,7 +509,7 @@ struct ThreadsListView: View {
             do {
                 try await client.deleteThread(threadId: thread.id)
             } catch {
-                await MainActor.run { actionError = error.localizedDescription }
+                await MainActor.run { actionError = ChineseLocalization.errorDescription(error) }
             }
         }
     }

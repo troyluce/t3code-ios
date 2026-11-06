@@ -105,7 +105,7 @@ struct T3WordmarkLabel: View {
                 .font(.system(size: size, weight: .regular))
                 .foregroundStyle(T3Color.textPrimary)
             if showsAlpha {
-                Text("ALPHA")
+                Text("预览版")
                     .font(.system(size: max(9, size - 7), weight: .semibold))
                     .foregroundStyle(T3Color.textTertiary)
                     .tracking(0.4)

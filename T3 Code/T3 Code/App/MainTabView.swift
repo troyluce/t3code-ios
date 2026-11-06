@@ -13,13 +13,13 @@ struct MainTabView: View {
         let tabs = TabView(selection: $selectedTab) {
             ThreadsListView()
                 .tabItem {
-                    Label("Chat", systemImage: "bubble.left.and.bubble.right")
+                    Label("聊天", systemImage: "bubble.left.and.bubble.right")
                 }
                 .tag(Tab.threads)
 
             SettingsTabView()
                 .tabItem {
-                    Label("Settings", systemImage: "gearshape")
+                    Label("设置", systemImage: "gearshape")
                 }
                 .tag(Tab.settings)
         }

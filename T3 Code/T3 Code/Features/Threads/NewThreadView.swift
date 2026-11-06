@@ -81,7 +81,7 @@ struct NewThreadView: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 T3WordmarkLabel()
-                Text("Spin up a new conversation")
+                Text("开始新的对话")
                     .font(T3Typography.footnote)
                     .foregroundStyle(T3Color.textTertiary)
             }
@@ -98,7 +98,7 @@ struct NewThreadView: View {
                 if isCreating {
                     ProgressView().controlSize(.small).tint(.white)
                 } else {
-                    Text("Create")
+                    Text("创建")
                         .font(.system(size: 14, weight: .semibold))
                 }
             }
@@ -117,17 +117,17 @@ struct NewThreadView: View {
     @ViewBuilder
     private var projectSection: some View {
         VStack(alignment: .leading, spacing: T3Spacing.sm) {
-            T3Style.SectionHeader(title: "Project")
+            T3Style.SectionHeader(title: "项目")
             T3Style.Card(padding: T3Spacing.md) {
                 if env.threadList.projects.isEmpty {
-                    Text("No projects are available from the desktop server.")
+                    Text("桌面服务器没有可用项目。")
                         .font(T3Typography.callout)
                         .foregroundStyle(T3Color.textSecondary)
                         .padding(.vertical, T3Spacing.sm)
                 } else {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(selectedProject?.title ?? "Select project")
+                            Text(selectedProject?.title ?? "选择项目")
                                 .font(T3Typography.body)
                                 .foregroundStyle(T3Color.textPrimary)
                             if let project = selectedProject {
@@ -168,7 +168,7 @@ struct NewThreadView: View {
 
     private var messageSection: some View {
         VStack(alignment: .leading, spacing: T3Spacing.sm) {
-            T3Style.SectionHeader(title: "Message")
+            T3Style.SectionHeader(title: "消息")
             T3Style.Card(padding: T3Spacing.md) {
                 VStack(alignment: .leading, spacing: T3Spacing.sm) {
                     if !attachments.isEmpty {
@@ -185,7 +185,7 @@ struct NewThreadView: View {
                     VStack(alignment: .leading, spacing: T3Spacing.xs) {
                         ZStack(alignment: .topLeading) {
                             if prompt.isEmpty {
-                                Text("Ask T3 Code…")
+                                Text("向 T3 Code 提问…")
                                     .foregroundStyle(T3Color.textTertiary)
                                     .font(T3Typography.body)
                                     .padding(.top, 8)
@@ -202,7 +202,7 @@ struct NewThreadView: View {
                             PhotosPicker(selection: $pickerItems,
                                          maxSelectionCount: maxAttachments,
                                          matching: .images) {
-                                Label("Photos", systemImage: "paperclip")
+                                Label("照片", systemImage: "paperclip")
                                     .font(T3Typography.footnote)
                                     .foregroundStyle(attachments.count >= maxAttachments
                                                      ? T3Color.textTertiary
@@ -226,7 +226,7 @@ struct NewThreadView: View {
 
     private var modelSection: some View {
         VStack(alignment: .leading, spacing: T3Spacing.sm) {
-            T3Style.SectionHeader(title: "Model")
+            T3Style.SectionHeader(title: "模型")
             T3Style.Card(padding: T3Spacing.md) {
                 if usableProviders.isEmpty {
                     Text(providerEmptyMessage)
@@ -239,7 +239,7 @@ struct NewThreadView: View {
                         showModelPicker = true
                     } label: {
                         HStack {
-                            Text("Model")
+                            Text("模型")
                                 .font(T3Typography.body)
                                 .foregroundStyle(T3Color.textPrimary)
                             Spacer()
@@ -286,7 +286,7 @@ struct NewThreadView: View {
 
     private var newThreadModelSummary: String {
         guard let provider = selectedProvider, !selectedModel.isEmpty else {
-            return "Choose model"
+            return "选择模型"
         }
         let name = provider.modelLabel(selectedModel)
         let brand = provider.brandDisplayName
@@ -304,16 +304,16 @@ struct NewThreadView: View {
 
     private var modeSection: some View {
         VStack(alignment: .leading, spacing: T3Spacing.sm) {
-            T3Style.SectionHeader(title: "Mode")
+            T3Style.SectionHeader(title: "模式")
             T3Style.Card {
                 VStack(alignment: .leading, spacing: T3Spacing.lg) {
                     VStack(alignment: .leading, spacing: T3Spacing.sm) {
-                        Text("Chat mode")
+                        Text("会话模式")
                             .font(T3Typography.callout)
                             .foregroundStyle(T3Color.textSecondary)
-                        Picker("Chat mode", selection: $interactionMode) {
-                            Text("Build").tag(ProviderInteractionMode.default)
-                            Text("Plan").tag(ProviderInteractionMode.plan)
+                        Picker("会话模式", selection: $interactionMode) {
+                            Text("执行").tag(ProviderInteractionMode.default)
+                            Text("规划").tag(ProviderInteractionMode.plan)
                         }
                         .pickerStyle(.segmented)
                         .disabled(selectedProvider?.showInteractionModeToggle == false)
@@ -322,13 +322,13 @@ struct NewThreadView: View {
                     Divider().overlay(T3Color.separator)
 
                     VStack(alignment: .leading, spacing: T3Spacing.sm) {
-                        Text("Access")
+                        Text("权限")
                             .font(T3Typography.callout)
                             .foregroundStyle(T3Color.textSecondary)
-                        Picker("Access", selection: $runtimeMode) {
-                            Text("Supervised").tag(RuntimeMode.approvalRequired)
-                            Text("Auto edits").tag(RuntimeMode.autoAcceptEdits)
-                            Text("Full access").tag(RuntimeMode.fullAccess)
+                        Picker("权限", selection: $runtimeMode) {
+                            Text("逐项审批").tag(RuntimeMode.approvalRequired)
+                            Text("自动编辑").tag(RuntimeMode.autoAcceptEdits)
+                            Text("完全访问").tag(RuntimeMode.fullAccess)
                         }
                         .pickerStyle(.segmented)
                     }
@@ -360,8 +360,8 @@ struct NewThreadView: View {
             return error
         }
         return env.serverConfig == nil
-            ? "Loading providers…"
-            : "No installed, authenticated providers are available."
+            ? "正在加载服务商…"
+            : "没有已安装并完成认证的可用服务商。"
     }
 
     private var canCreate: Bool {
@@ -442,7 +442,7 @@ struct NewThreadView: View {
                 dismiss()
             }
         } catch {
-            await MainActor.run { errorMessage = error.localizedDescription }
+            await MainActor.run { errorMessage = ChineseLocalization.errorDescription(error) }
         }
     }
 }

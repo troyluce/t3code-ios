@@ -140,7 +140,7 @@ struct ThreadView: View {
                 VStack(alignment: .leading, spacing: T3Spacing.lg) {
                     if let status = gitStatus, let cwd = gitCwd {
                         if !status.isRepo {
-                            Text("Not a git repository.")
+                            Text("当前目录不是 Git 仓库。")
                                 .font(T3Typography.footnote)
                                 .foregroundStyle(T3Color.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -167,7 +167,7 @@ struct ThreadView: View {
                         HStack(spacing: T3Spacing.sm) {
                             ProgressView()
                                 .controlSize(.small)
-                            Text("Loading git status…")
+                            Text("正在加载 Git 状态…")
                                 .font(T3Typography.footnote)
                                 .foregroundStyle(T3Color.textSecondary)
                         }
@@ -193,26 +193,26 @@ struct ThreadView: View {
                     .disabled(isRefreshingGitStatus)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { showGitSheet = false }
+                    Button("完成") { showGitSheet = false }
                 }
             }
             .confirmationDialog(pullConfirmTitle,
                                 isPresented: $confirmPullPresented,
                                 titleVisibility: .visible) {
-                Button("Pull", role: .none) {
+                Button("拉取", role: .none) {
                     Task { await runPull() }
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("取消", role: .cancel) {}
             } message: {
                 Text(pullConfirmMessage)
             }
             .confirmationDialog(pushConfirmTitle,
                                 isPresented: $confirmPushPresented,
                                 titleVisibility: .visible) {
-                Button("Push", role: .none) {
+                Button("推送", role: .none) {
                     Task { await runGitAction(.push) }
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("取消", role: .cancel) {}
             } message: {
                 Text(pushConfirmMessage)
             }
@@ -227,7 +227,7 @@ struct ThreadView: View {
                 Image(systemName: "arrow.triangle.branch")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(T3Color.textTertiary)
-                Text(status.refName ?? "No branch")
+                Text(status.refName ?? "无分支")
                     .font(T3Typography.bodyEmphasis)
                     .foregroundStyle(T3Color.textPrimary)
                     .lineLimit(1)
@@ -248,7 +248,7 @@ struct ThreadView: View {
                         .monospacedDigit()
                 }
                 if status.hasUpstream == false {
-                    T3Style.Pill(text: "NO UPSTREAM",
+                    T3Style.Pill(text: "未设置上游分支",
                                  systemImage: "exclamationmark.triangle.fill",
                                  tint: T3Color.warning,
                                  emphasized: true)
@@ -278,7 +278,7 @@ struct ThreadView: View {
     private func gitFilesList(status: VcsStatusSummary) -> some View {
         VStack(alignment: .leading, spacing: T3Spacing.sm) {
             HStack(spacing: 4) {
-                Text("CHANGED FILES")
+                Text("文件变更")
                     .font(T3Typography.caption)
                     .foregroundStyle(T3Color.textTertiary)
                     .tracking(0.6)
@@ -317,7 +317,7 @@ struct ThreadView: View {
                     }
                 }
                 if status.workingTree.files.count > 60 {
-                    Text("+\(status.workingTree.files.count - 60) more…")
+                    Text("还有 \(status.workingTree.files.count - 60) 个文件…")
                         .font(T3Typography.footnote)
                         .foregroundStyle(T3Color.textTertiary)
                         .padding(.horizontal, T3Spacing.md)
@@ -337,7 +337,7 @@ struct ThreadView: View {
             Button {
                 confirmPullPresented = true
             } label: {
-                Label("Pull", systemImage: "arrow.down")
+                Label("拉取", systemImage: "arrow.down")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
@@ -349,7 +349,7 @@ struct ThreadView: View {
                     commitInlineExpanded = true
                 }
             } label: {
-                Label("Commit", systemImage: "checkmark.seal")
+                Label("提交", systemImage: "checkmark.seal")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
@@ -358,7 +358,7 @@ struct ThreadView: View {
             Button {
                 confirmPushPresented = true
             } label: {
-                Label("Push", systemImage: "arrow.up")
+                Label("推送", systemImage: "arrow.up")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -369,11 +369,11 @@ struct ThreadView: View {
 
     private func commitInlineEditor(status: VcsStatusSummary) -> some View {
         VStack(alignment: .leading, spacing: T3Spacing.sm) {
-            Text("COMMIT MESSAGE")
+            Text("提交说明")
                 .font(T3Typography.caption)
                 .foregroundStyle(T3Color.textTertiary)
                 .tracking(0.6)
-            TextField("Describe these changes…", text: $commitMessageDraft, axis: .vertical)
+            TextField("描述本次变更…", text: $commitMessageDraft, axis: .vertical)
                 .lineLimit(3...6)
                 .textFieldStyle(.plain)
                 .padding(T3Spacing.md)
@@ -384,7 +384,7 @@ struct ThreadView: View {
                         .stroke(T3Color.separator, lineWidth: 0.5)
                 )
             HStack(spacing: T3Spacing.sm) {
-                Button("Cancel") {
+                Button("取消") {
                     withAnimation(.easeInOut(duration: 0.18)) {
                         commitInlineExpanded = false
                     }
@@ -400,7 +400,7 @@ struct ThreadView: View {
                     }
                     Task { await runGitAction(.commit, commitMessage: message) }
                 } label: {
-                    Label("Commit", systemImage: "checkmark.seal.fill")
+                    Label("提交", systemImage: "checkmark.seal.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -457,18 +457,18 @@ struct ThreadView: View {
     private func gitStatusSummaryLine(_ status: VcsStatusSummary) -> String {
         if status.hasWorkingTreeChanges {
             let count = status.workingTree.files.count
-            let plural = count == 1 ? "file" : "files"
-            return "\(count) \(plural)  +\(status.workingTree.insertions)  −\(status.workingTree.deletions)"
+
+            return "\(count) 个文件  +\(status.workingTree.insertions)  −\(status.workingTree.deletions)"
         }
         if status.hasUpstream == false {
-            return "Working tree clean • no upstream"
+            return "工作区干净 · 未设置上游分支"
         }
         if status.aheadCount == 0 && status.behindCount == 0 {
-            return "Up to date"
+            return "已是最新"
         }
-        var parts: [String] = ["Working tree clean"]
-        if status.aheadCount > 0 { parts.append("\(status.aheadCount) to push") }
-        if status.behindCount > 0 { parts.append("\(status.behindCount) to pull") }
+        var parts: [String] = ["工作区干净"]
+        if status.aheadCount > 0 { parts.append("\(status.aheadCount) 个提交待推送") }
+        if status.behindCount > 0 { parts.append("\(status.behindCount) 个提交待拉取") }
         return parts.joined(separator: " • ")
     }
 
@@ -479,25 +479,25 @@ struct ThreadView: View {
     }
 
     private var pullConfirmTitle: String {
-        guard let status = gitStatus, status.behindCount > 0 else { return "Pull from upstream?" }
-        let s = status.behindCount == 1 ? "" : "s"
-        return "Pull \(status.behindCount) commit\(s)?"
+        guard let status = gitStatus, status.behindCount > 0 else { return "从上游分支拉取？" }
+
+        return "拉取 \(status.behindCount) 个提交？"
     }
 
     private var pullConfirmMessage: String {
-        let branch = gitStatus?.refName ?? "current branch"
-        return "Fetch and fast-forward \(branch) from its upstream. Local commits won't be lost."
+        let branch = gitStatus?.refName ?? "当前分支"
+        return "从上游获取更新并快进合并到\(branch)，保留本地提交。"
     }
 
     private var pushConfirmTitle: String {
-        guard let status = gitStatus, status.aheadCount > 0 else { return "Push to upstream?" }
-        let s = status.aheadCount == 1 ? "" : "s"
-        return "Push \(status.aheadCount) commit\(s)?"
+        guard let status = gitStatus, status.aheadCount > 0 else { return "推送到上游分支？" }
+
+        return "推送 \(status.aheadCount) 个提交？"
     }
 
     private var pushConfirmMessage: String {
-        let branch = gitStatus?.refName ?? "current branch"
-        return "Push local commits on \(branch) to its upstream remote."
+        let branch = gitStatus?.refName ?? "当前分支"
+        return "将\(branch)上的本地提交推送到上游远程分支。"
     }
 
     private var resolvedThread: ThreadHeaderView.ThreadDescriptor {
@@ -527,7 +527,7 @@ struct ThreadView: View {
         do {
             try await client.renameThread(threadId: threadShell.id, title: trimmed)
         } catch {
-            await MainActor.run { store.lastError = error.localizedDescription }
+            await MainActor.run { store.lastError = ChineseLocalization.errorDescription(error) }
         }
     }
 
@@ -538,7 +538,7 @@ struct ThreadView: View {
                 try await client.archiveThread(threadId: threadShell.id)
                 await MainActor.run { dismiss() }
             } catch {
-                await MainActor.run { store.lastError = error.localizedDescription }
+                await MainActor.run { store.lastError = ChineseLocalization.errorDescription(error) }
             }
         }
     }
@@ -554,7 +554,7 @@ struct ThreadView: View {
             let status = try await client.refreshVcsStatus(cwd: cwd)
             await MainActor.run { gitStatus = status }
         } catch {
-            await MainActor.run { gitStatusError = error.localizedDescription }
+            await MainActor.run { gitStatusError = ChineseLocalization.errorDescription(error) }
         }
     }
 
@@ -578,9 +578,9 @@ struct ThreadView: View {
             }
         } catch {
             await MainActor.run {
-                gitStatusError = error.localizedDescription
-                presentGitToast(.init(title: "Pull failed",
-                                      detail: error.localizedDescription,
+                gitStatusError = ChineseLocalization.errorDescription(error)
+                presentGitToast(.init(title: "拉取失败",
+                                      detail: ChineseLocalization.errorDescription(error),
                                       isSuccess: false))
             }
         }
@@ -604,13 +604,13 @@ struct ThreadView: View {
         } catch {
             let label: String
             switch action {
-            case .commit: label = "Commit failed"
-            case .push:   label = "Push failed"
+            case .commit: label = "提交失败"
+            case .push:   label = "推送失败"
             }
             await MainActor.run {
-                gitStatusError = error.localizedDescription
+                gitStatusError = ChineseLocalization.errorDescription(error)
                 presentGitToast(.init(title: label,
-                                      detail: error.localizedDescription,
+                                      detail: ChineseLocalization.errorDescription(error),
                                       isSuccess: false))
             }
         }
@@ -637,12 +637,12 @@ struct ThreadView: View {
     private func pullToastTitle(status: String, count: Int) -> String {
         switch status.lowercased() {
         case "uptodate", "up_to_date", "up-to-date":
-            return "Already up to date"
+            return "已是最新"
         case "fastforward", "fast_forward", "fast-forward":
-            let s = count == 1 ? "" : "s"
-            return count > 0 ? "Pulled \(count) commit\(s)" : "Pulled latest commits"
+
+            return count > 0 ? "已拉取 \(count) 个提交" : "已拉取最新提交"
         default:
-            return "Pull complete"
+            return "拉取完成"
         }
     }
 
@@ -659,7 +659,7 @@ struct ThreadView: View {
             do {
                 try await client.unarchiveThread(threadId: threadShell.id)
             } catch {
-                await MainActor.run { store.lastError = error.localizedDescription }
+                await MainActor.run { store.lastError = ChineseLocalization.errorDescription(error) }
             }
         }
     }
@@ -671,7 +671,7 @@ struct ThreadView: View {
                 try await client.deleteThread(threadId: threadShell.id)
                 await MainActor.run { dismiss() }
             } catch {
-                await MainActor.run { store.lastError = error.localizedDescription }
+                await MainActor.run { store.lastError = ChineseLocalization.errorDescription(error) }
             }
         }
     }
@@ -734,13 +734,13 @@ struct ThreadHeaderView: View {
                 .fill(T3Color.separator)
                 .frame(height: 0.5)
         }
-        .confirmationDialog("Delete this thread?",
+        .confirmationDialog("删除此会话？",
                             isPresented: $confirmDelete,
                             titleVisibility: .visible) {
-            Button("Delete", role: .destructive, action: onDelete)
-            Button("Cancel", role: .cancel) {}
+            Button("删除", role: .destructive, action: onDelete)
+            Button("取消", role: .cancel) {}
         } message: {
-            Text("This thread will be permanently removed from the desktop server.")
+            Text("此会话将从桌面服务器永久删除。")
         }
     }
 
@@ -793,31 +793,31 @@ struct ThreadHeaderView: View {
             Button {
                 onRename()
             } label: {
-                Label("Rename thread", systemImage: "pencil")
+                Label("重命名会话", systemImage: "pencil")
             }
             Button {
                 onViewDiffs()
             } label: {
-                Label("View changes", systemImage: "doc.text.magnifyingglass")
+                Label("查看变更", systemImage: "doc.text.magnifyingglass")
             }
             if isArchived {
                 Button {
                     onUnarchive()
                 } label: {
-                    Label("Unarchive", systemImage: "tray.and.arrow.up")
+                    Label("取消归档", systemImage: "tray.and.arrow.up")
                 }
             } else {
                 Button {
                     onArchive()
                 } label: {
-                    Label("Archive", systemImage: "archivebox")
+                    Label("归档", systemImage: "archivebox")
                 }
             }
             Divider()
             Button(role: .destructive) {
                 confirmDelete = true
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label("删除", systemImage: "trash")
             }
         } label: {
             Image(systemName: "ellipsis")
@@ -882,7 +882,7 @@ struct ThreadHeaderView: View {
                     Text("·")
                         .font(T3Typography.footnote)
                         .foregroundStyle(T3Color.textTertiary)
-                    Text("running")
+                    Text("运行中")
                         .font(T3Typography.footnote)
                         .foregroundStyle(T3Color.warning)
                 }
@@ -896,12 +896,12 @@ struct ThreadHeaderView: View {
         if let session {
             switch session.status {
             case .running:
-                T3Style.Pill(text: "Running",
+                T3Style.Pill(text: "运行中",
                              systemImage: "circle.fill",
                              tint: T3Color.warning,
                              emphasized: true)
             case .error:
-                T3Style.Pill(text: "Error",
+                T3Style.Pill(text: "错误",
                              systemImage: "exclamationmark.triangle.fill",
                              tint: T3Color.danger,
                              emphasized: true)
@@ -916,12 +916,12 @@ struct ThreadHeaderView: View {
             Button {
                 onSetInteractionMode(.default)
             } label: {
-                Label("Build", systemImage: thread.interactionMode == .default ? "checkmark" : "hammer")
+                Label("执行", systemImage: thread.interactionMode == .default ? "checkmark" : "hammer")
             }
             Button {
                 onSetInteractionMode(.plan)
             } label: {
-                Label("Plan", systemImage: thread.interactionMode == .plan ? "checkmark" : "doc.plaintext")
+                Label("规划", systemImage: thread.interactionMode == .plan ? "checkmark" : "doc.plaintext")
             }
         } label: {
             interactionModeBadge
@@ -930,7 +930,7 @@ struct ThreadHeaderView: View {
 
     private var interactionModeBadge: some View {
         let mode = thread.interactionMode
-        let label = mode == .plan ? "PLAN" : "BUILD"
+        let label = mode == .plan ? "规划" : "执行"
         let tint: Color = mode == .plan ? accentColor : T3Color.success
         return T3Style.Pill(text: label, tint: tint, emphasized: true)
     }
@@ -940,19 +940,19 @@ struct ThreadHeaderView: View {
             Button {
                 onSetRuntimeMode(.approvalRequired)
             } label: {
-                Label("Supervised",
+                Label("逐项审批",
                       systemImage: thread.runtimeMode == .approvalRequired ? "checkmark" : "checkmark.shield")
             }
             Button {
                 onSetRuntimeMode(.autoAcceptEdits)
             } label: {
-                Label("Auto edits",
+                Label("自动编辑",
                       systemImage: thread.runtimeMode == .autoAcceptEdits ? "checkmark" : "wand.and.stars")
             }
             Button {
                 onSetRuntimeMode(.fullAccess)
             } label: {
-                Label("Full access",
+                Label("完全访问",
                       systemImage: thread.runtimeMode == .fullAccess ? "checkmark" : "lock.open")
             }
         } label: {
@@ -969,9 +969,9 @@ struct ThreadHeaderView: View {
 
     private var runtimeModeLabel: String {
         switch thread.runtimeMode {
-        case .approvalRequired: "supervised"
-        case .autoAcceptEdits: "auto edits"
-        case .fullAccess: "full access"
+        case .approvalRequired: "逐项审批"
+        case .autoAcceptEdits: "自动编辑"
+        case .fullAccess: "完全访问"
         }
     }
 
@@ -995,9 +995,9 @@ private struct ThreadDiffSheet: View {
         NavigationStack {
             Group {
                 if changes.isEmpty {
-                    ContentUnavailableView("No file changes yet",
+                    ContentUnavailableView("暂无文件变更",
                                            systemImage: "doc.text",
-                                           description: Text("When the agent edits files, they will show up here."))
+                                           description: Text("智能体编辑文件后，变更会显示在这里。"))
                 } else {
                     List {
                         ForEach(changes) { change in
@@ -1030,7 +1030,7 @@ private struct ThreadDiffSheet: View {
                     .listStyle(.insetGrouped)
                 }
             }
-            .navigationTitle("Changes")
+            .navigationTitle("变更")
             .navigationBarTitleDisplayMode(.inline)
         }
     }
@@ -1055,7 +1055,7 @@ private struct ThreadRenameSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: T3Spacing.lg) {
-                TextField("Thread title", text: $draft)
+                TextField("会话标题", text: $draft)
                     .textFieldStyle(.roundedBorder)
                     .focused($focused)
                     .submitLabel(.done)
@@ -1063,14 +1063,14 @@ private struct ThreadRenameSheet: View {
                 Spacer()
             }
             .padding(T3Spacing.lg)
-            .navigationTitle("Rename thread")
+            .navigationTitle("重命名会话")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
+                    Button("取消", action: onCancel)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button("保存") {
                         onSubmit(draft)
                     }
                     .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

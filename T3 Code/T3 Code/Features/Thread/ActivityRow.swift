@@ -43,7 +43,7 @@ struct ActivityRow: View {
         .animation(.easeInOut(duration: 0.18), value: isExpanded)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(hasExpansion ? "Double tap to \(isExpanded ? "collapse" : "expand") details" : "")
+        .accessibilityHint(hasExpansion ? "轻点两下\(isExpanded ? "收起" : "展开")详情" : "")
     }
 
     private var summaryRow: some View {
@@ -146,7 +146,7 @@ struct ActivityRow: View {
             if activity.changedFiles.count == 1 {
                 return activity.changedFiles[0]
             }
-            return "\(activity.changedFiles.count) files"
+            return "\(activity.changedFiles.count) 个文件"
         }
         if let detail = activity.detail, !detail.isEmpty {
             return firstLine(detail)

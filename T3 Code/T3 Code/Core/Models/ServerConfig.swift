@@ -137,8 +137,8 @@ enum OpenCodeRoutingBucket: String, Hashable, Sendable {
         switch self {
         case .zen: return "Zen"
         case .go: return "Go"
-        case .standard: return "Standard routing"
-        case .other: return "Other"
+        case .standard: return "标准路由"
+        case .other: return "其他"
         }
     }
 
@@ -387,7 +387,7 @@ struct ModelCatalogSection: Identifiable, Sendable {
                     items.sort {
                         $0.model.label.localizedCaseInsensitiveCompare($1.model.label) == .orderedAscending
                     }
-                    let label = key == "__none__" ? "Other" : key
+                    let label = key == "__none__" ? "其他" : key
                     let suffix: String? = shouldShowSuffix ? label : nil
                     let sid = "\(p.instanceId.rawValue)|\(key)"
                     sections.append(ModelCatalogSection(

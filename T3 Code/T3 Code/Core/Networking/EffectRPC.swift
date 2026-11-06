@@ -96,16 +96,16 @@ enum EffectRPCDecoder {
                 let cause = exit["cause"] as? [String: Any] ?? [:]
                 let errorMessage = (cause["error"] as? [String: Any])?["message"] as? String
                     ?? (cause["defect"] as? String)
-                    ?? "Server error"
+                    ?? "服务器错误"
                 let errorTag = (cause["error"] as? [String: Any])?["_tag"] as? String
                 return .exit(requestId: id, success: false, value: nil,
                              errorTag: errorTag, errorMessage: errorMessage)
             }
         case "Defect":
-            let message = (dict["defect"] as? String) ?? "Unknown server defect"
+            let message = (dict["defect"] as? String) ?? "未知服务器错误"
             return .defect(message: message)
         case "ClientProtocolError":
-            let message = (dict["error"] as? String) ?? "Client protocol error"
+            let message = (dict["error"] as? String) ?? "客户端协议错误"
             return .defect(message: message)
         default:
             return .unknown(json: any)

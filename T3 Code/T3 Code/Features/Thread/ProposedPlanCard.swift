@@ -31,10 +31,10 @@ struct ProposedPlanCard: View {
                 .frame(width: 28, height: 28)
                 .background(AppAccent.color(for: accentRaw).opacity(0.16), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text("Proposed plan")
+                Text("建议方案")
                     .font(T3Typography.headline)
                     .foregroundStyle(T3Color.textPrimary)
-                Text(plan.updatedAt.formatted(date: .omitted, time: .shortened))
+                Text(plan.updatedAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(Locale(identifier: "zh_Hans_CN"))))
                     .font(T3Typography.footnote)
                     .foregroundStyle(T3Color.textTertiary)
             }
@@ -65,7 +65,7 @@ struct ProposedPlanCard: View {
     private var actionRow: some View {
         HStack(spacing: T3Spacing.sm) {
             if plan.implementedAt != nil {
-                Label("Implemented", systemImage: "checkmark.seal.fill")
+                Label("已执行", systemImage: "checkmark.seal.fill")
                     .font(T3Typography.bodyEmphasis)
                     .foregroundStyle(T3Color.success)
                 Spacer(minLength: 0)
@@ -79,7 +79,7 @@ struct ProposedPlanCard: View {
                             Image(systemName: "play.fill")
                                 .font(.system(size: 13, weight: .semibold))
                         }
-                        Text(isImplementing ? "Starting…" : "Implement plan")
+                        Text(isImplementing ? "启动中…" : "执行方案")
                             .font(.system(size: 13, weight: .medium))
                     }
                     .padding(.horizontal, T3Spacing.md)

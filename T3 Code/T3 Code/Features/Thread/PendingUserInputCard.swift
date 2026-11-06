@@ -33,10 +33,10 @@ struct PendingUserInputCard: View {
                 .frame(width: 28, height: 28)
                 .background(T3Color.warning.opacity(0.16), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text("Input needed")
+                Text("需要补充信息")
                     .font(T3Typography.headline)
                     .foregroundStyle(T3Color.textPrimary)
-                Text("Answer to continue")
+                Text("回答后继续")
                     .font(T3Typography.footnote)
                     .foregroundStyle(T3Color.textSecondary)
             }
@@ -103,7 +103,7 @@ struct PendingUserInputCard: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(T3Color.textTertiary)
                 .frame(width: 22)
-            TextField("Other (optional)",
+            TextField("其他回答（选填）",
                       text: Binding(get: { customByQuestion[question.id] ?? "" },
                                     set: { customByQuestion[question.id] = $0 }))
                 .textInputAutocapitalization(.sentences)
@@ -123,7 +123,7 @@ struct PendingUserInputCard: View {
             } label: {
                 HStack(spacing: T3Spacing.xs) {
                     Image(systemName: "paperplane.fill")
-                    Text("Submit")
+                    Text("提交")
                         .font(T3Typography.bodyEmphasis)
                 }
                 .padding(.horizontal, T3Spacing.lg)

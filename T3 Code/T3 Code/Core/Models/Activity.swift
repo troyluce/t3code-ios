@@ -19,9 +19,9 @@ enum ApprovalRequestKind: String, Codable, Sendable {
 
     var displayLabel: String {
         switch self {
-        case .command: "Run command"
-        case .fileRead: "Read file"
-        case .fileChange: "Change files"
+        case .command: "执行命令"
+        case .fileRead: "读取文件"
+        case .fileChange: "修改文件"
         }
     }
 
@@ -42,10 +42,10 @@ enum ApprovalDecision: String, Codable, Sendable {
 
     var label: String {
         switch self {
-        case .accept: "Accept"
-        case .acceptForSession: "Accept for session"
-        case .decline: "Decline"
-        case .cancel: "Cancel"
+        case .accept: "允许"
+        case .acceptForSession: "本次会话始终允许"
+        case .decline: "拒绝"
+        case .cancel: "取消"
         }
     }
 }

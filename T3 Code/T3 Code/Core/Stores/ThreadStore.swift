@@ -83,7 +83,7 @@ final class ThreadStore {
 
         let resolvedSelection = detail?.modelSelection ?? fallbackModelSelection
         guard let modelSelection = resolvedSelection else {
-            await MainActor.run { self.lastError = "No model selected" }
+            await MainActor.run { self.lastError = "尚未选择模型" }
             return
         }
 
@@ -100,7 +100,7 @@ final class ThreadStore {
                 interactionMode: detail?.interactionMode ?? .default
             )
         } catch {
-            await MainActor.run { self.lastError = error.localizedDescription }
+            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
         }
     }
 
@@ -110,7 +110,7 @@ final class ThreadStore {
             try await client.interruptTurn(threadId: threadId,
                                            turnId: detail?.latestTurn?.turnId)
         } catch {
-            await MainActor.run { self.lastError = error.localizedDescription }
+            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
         }
     }
 
@@ -124,7 +124,7 @@ final class ThreadStore {
                                              requestId: approval.requestId,
                                              decision: decision)
         } catch {
-            await MainActor.run { self.lastError = error.localizedDescription }
+            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
         }
     }
 
@@ -139,7 +139,7 @@ final class ThreadStore {
                                               requestId: input.requestId,
                                               answers: answers)
         } catch {
-            await MainActor.run { self.lastError = error.localizedDescription }
+            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
         }
     }
 
@@ -148,7 +148,7 @@ final class ThreadStore {
         do {
             try await client.setInteractionMode(threadId: threadId, mode: mode)
         } catch {
-            await MainActor.run { self.lastError = error.localizedDescription }
+            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
         }
     }
 
@@ -157,7 +157,7 @@ final class ThreadStore {
         do {
             try await client.setRuntimeMode(threadId: threadId, mode: mode)
         } catch {
-            await MainActor.run { self.lastError = error.localizedDescription }
+            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
         }
     }
 
@@ -173,7 +173,7 @@ final class ThreadStore {
             try await client.updateThreadModelSelection(threadId: threadId,
                                                         modelSelection: selection)
         } catch {
-            await MainActor.run { self.lastError = error.localizedDescription }
+            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
         }
     }
 
@@ -189,7 +189,7 @@ final class ThreadStore {
                 interactionMode: .default
             )
         } catch {
-            await MainActor.run { self.lastError = error.localizedDescription }
+            await MainActor.run { self.lastError = ChineseLocalization.errorDescription(error) }
         }
     }
 

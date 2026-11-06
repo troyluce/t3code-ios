@@ -8,10 +8,10 @@ enum ConnectionState: Equatable {
 
     var label: String {
         switch self {
-        case .offline:    "Offline"
-        case .connecting: "Connecting"
-        case .connected:  "Connected"
-        case .error:      "Error"
+        case .offline:    "离线"
+        case .connecting: "连接中"
+        case .connected:  "已连接"
+        case .error:      "错误"
         }
     }
 
@@ -27,7 +27,7 @@ enum ConnectionState: Equatable {
     var detail: String? {
         switch self {
         case .error(let message):
-            message.isEmpty ? "Unknown connection error" : message
+            message.isEmpty ? "未知连接错误" : message
         default:
             nil
         }

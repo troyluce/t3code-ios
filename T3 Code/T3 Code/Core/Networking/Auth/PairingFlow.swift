@@ -16,15 +16,15 @@ enum PairingFlow {
         request.timeoutInterval = 10
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw T3Error.pairingFailed("No response from server")
+            throw T3Error.pairingFailed("服务器没有响应")
         }
         guard http.statusCode == 200 else {
             throw T3Error.pairingFailed(
-                "Environment request failed with status \(http.statusCode): \(errorMessage(from: data))"
+                "获取服务器环境失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
             )
         }
         guard let descriptor = EnvironmentDescriptor.decodeLenient(data) else {
-            throw T3Error.pairingFailed("Invalid environment descriptor")
+            throw T3Error.pairingFailed("服务器环境信息无效")
         }
         return descriptor
     }
@@ -40,14 +40,14 @@ enum PairingFlow {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw T3Error.pairingFailed("No response from server")
+            throw T3Error.pairingFailed("服务器没有响应")
         }
         if http.statusCode == 401 || http.statusCode == 403 {
-            throw T3Error.pairingFailed("Pairing token rejected: \(errorMessage(from: data))")
+            throw T3Error.pairingFailed("配对令牌被拒绝：\(errorMessage(from: data))")
         }
         guard (200...299).contains(http.statusCode) else {
             throw T3Error.pairingFailed(
-                "Pairing failed with status \(http.statusCode): \(errorMessage(from: data))"
+                "配对失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
             )
         }
 
@@ -58,7 +58,7 @@ enum PairingFlow {
             }
         }
 
-        throw T3Error.pairingFailed("Pairing response did not include a bearer session token")
+        throw T3Error.pairingFailed("配对响应中缺少登录令牌")
     }
 
     static func issueWebSocketToken(serverURL: URL, bearerToken: String) async throws -> WebSocketToken {
@@ -70,17 +70,17 @@ enum PairingFlow {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw T3Error.pairingFailed("No response from server")
+            throw T3Error.pairingFailed("服务器没有响应")
         }
         guard (200...299).contains(http.statusCode) else {
             throw T3Error.pairingFailed(
-                "WebSocket token request failed with status \(http.statusCode): \(errorMessage(from: data))"
+                "获取 WebSocket 令牌失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
             )
         }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let token = json["token"] as? String,
               !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw T3Error.pairingFailed("WebSocket token response was invalid")
+            throw T3Error.pairingFailed("WebSocket 令牌响应无效")
         }
         return WebSocketToken(token: token)
     }
@@ -144,6 +144,6 @@ enum PairingFlow {
            !text.isEmpty {
             return text
         }
-        return "empty response"
+        return "响应为空"
     }
 }

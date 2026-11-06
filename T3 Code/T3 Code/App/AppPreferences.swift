@@ -8,9 +8,9 @@ enum AppAppearance: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .system: "System"
-        case .light: "Light"
-        case .dark: "Dark"
+        case .system: "跟随系统"
+        case .light: "浅色"
+        case .dark: "深色"
         }
     }
 
@@ -30,10 +30,10 @@ enum AppAccent: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .blue: "Blue"
-        case .violet: "Violet"
-        case .green: "Green"
-        case .orange: "Orange"
+        case .blue: "蓝色"
+        case .violet: "紫色"
+        case .green: "绿色"
+        case .orange: "橙色"
         }
     }
 
@@ -66,8 +66,8 @@ enum TranscriptDensity: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .compact: "Compact"
-        case .comfortable: "Comfort"
+        case .compact: "紧凑"
+        case .comfortable: "舒适"
         }
     }
 }
@@ -79,9 +79,9 @@ enum ComposerSize: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .compact: "Compact"
-        case .comfortable: "Comfort"
-        case .expanded: "Expanded"
+        case .compact: "紧凑"
+        case .comfortable: "舒适"
+        case .expanded: "加高"
         }
     }
 

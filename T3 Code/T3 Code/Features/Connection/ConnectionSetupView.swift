@@ -44,17 +44,17 @@ struct ConnectionSetupView: View {
         HStack {
             T3WordmarkLabel()
             Spacer()
-            T3Style.Pill(text: "Pair", systemImage: "link",
+            T3Style.Pill(text: "配对", systemImage: "link",
                          tint: T3Color.warning, emphasized: true)
         }
     }
 
     private var heroBlock: some View {
         VStack(alignment: .leading, spacing: T3Spacing.sm) {
-            Text("Pair this iPhone with a T3 Code server.")
+            Text("将此 iPhone 与 T3 Code 服务器配对。")
                 .font(T3Typography.title)
                 .foregroundStyle(T3Color.textPrimary)
-            Text("Open the desktop app → Settings → Connections → Network access. Copy the pairing URL (HTTPS if you use a tunnel like Cloudflare) or enter the server URL and token separately.")
+            Text("打开桌面端的 Settings（设置）→ Connections（连接）→ Network access（网络访问），复制配对链接；也可以分别输入服务器地址和配对令牌。使用 Cloudflare 等隧道时，请使用 HTTPS 地址。")
                 .font(T3Typography.callout)
                 .foregroundStyle(T3Color.textSecondary)
         }
@@ -62,10 +62,10 @@ struct ConnectionSetupView: View {
 
     private var formCard: some View {
         VStack(alignment: .leading, spacing: T3Spacing.sm) {
-            T3Style.SectionHeader(title: "Server")
+            T3Style.SectionHeader(title: "服务器")
             T3Style.Card {
                 VStack(alignment: .leading, spacing: T3Spacing.md) {
-                    fieldGroup(label: "Server URL") {
+                    fieldGroup(label: "服务器地址") {
                         TextField("https://t3code-review.belweave.com", text: $serverURL)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
@@ -74,12 +74,12 @@ struct ConnectionSetupView: View {
                             .focused($focused, equals: .url)
                     }
 
-                    fieldGroup(label: "Pairing token", trailing: AnyView(
-                        Button("Paste link") { pastePairingLink() }
+                    fieldGroup(label: "配对令牌", trailing: AnyView(
+                        Button("粘贴配对链接") { pastePairingLink() }
                             .font(T3Typography.footnote)
                             .foregroundStyle(T3Color.primary)
                     )) {
-                        TextField("PAIRCODE", text: $pairingToken)
+                        TextField("输入配对令牌", text: $pairingToken)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .font(T3Typography.body)
@@ -93,7 +93,7 @@ struct ConnectionSetupView: View {
                     }
 
                     HStack {
-                        T3ToolbarButton(title: "Connect",
+                        T3ToolbarButton(title: "连接",
                                         systemImage: "link",
                                         isLoading: isWorking,
                                         isEnabled: canConnect) {
@@ -134,12 +134,12 @@ struct ConnectionSetupView: View {
 
     private var helpCard: some View {
         VStack(alignment: .leading, spacing: T3Spacing.sm) {
-            T3Style.SectionHeader(title: "Tips")
+            T3Style.SectionHeader(title: "使用提示")
             T3Style.Card {
                 VStack(alignment: .leading, spacing: T3Spacing.sm) {
-                    tipRow("Public HTTPS URLs (e.g. Cloudflare Tunnel) work: the app uses WSS for the live socket.")
-                    tipRow("Use Tailscale or LAN when you are not using a tunnel — the phone still needs a route to the server.")
-                    tipRow("Pairing tokens are one-time. After exchange, the iPhone keeps a session.")
+                    tipRow("支持 Cloudflare Tunnel 等公网 HTTPS 地址，实时连接通过 WSS 建立。")
+                    tipRow("也可以通过 Tailscale 或局域网连接，请确保手机能够访问服务器。")
+                    tipRow("配对令牌仅使用一次，配对成功后会在本机保存登录会话。")
                 }
                 .font(T3Typography.footnote)
                 .foregroundStyle(T3Color.textSecondary)
@@ -179,13 +179,13 @@ struct ConnectionSetupView: View {
     private func connect() async {
         guard !isWorking else { return }
         guard let rawURL = URL(string: serverURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            errorMessage = "Invalid server URL"
+            errorMessage = "服务器地址无效"
             return
         }
         let url = PairingFlow.serverBaseURL(from: rawURL)
         let token = pairingToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !token.isEmpty else {
-            errorMessage = "Pairing token required"
+            errorMessage = "请输入配对令牌"
             return
         }
         isWorking = true
@@ -197,7 +197,7 @@ struct ConnectionSetupView: View {
             let pair = try await PairingFlow.exchangeToken(serverURL: url, oneTimeToken: token)
             await env.configure(serverURL: url, bearerToken: pair.bearerToken)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = ChineseLocalization.errorDescription(error)
         }
     }
 }

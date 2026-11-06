@@ -39,7 +39,7 @@ struct PendingApprovalCard: View {
                 .frame(width: 28, height: 28)
                 .background(T3Color.warning.opacity(0.16), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text("Approval needed")
+                Text("需要审批")
                     .font(T3Typography.headline)
                     .foregroundStyle(T3Color.textPrimary)
                 Text(approval.kind.displayLabel)

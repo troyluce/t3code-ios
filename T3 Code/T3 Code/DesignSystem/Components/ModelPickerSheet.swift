@@ -32,11 +32,11 @@ struct ModelPickerSheet: View {
                 modelList
             }
             .background(T3Color.surfaceGrouped)
-            .navigationTitle("Model")
+            .navigationTitle("模型")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button("完成") { dismiss() }
                         .fontWeight(.medium)
                 }
             }
@@ -149,7 +149,7 @@ struct ModelPickerSheet: View {
             Image(systemName: "sparkles")
                 .font(.largeTitle)
                 .foregroundStyle(T3Color.textTertiary)
-            Text("No models available")
+            Text("暂无可用模型")
                 .font(T3Typography.callout)
                 .foregroundStyle(T3Color.textSecondary)
         }
