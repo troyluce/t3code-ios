@@ -1,0 +1,118 @@
+name: Build iOS 17 TrollStore IPA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/ios17-ipa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Adapt deployment target and timeline for iOS 17
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from textwrap import indent
+
+          project = Path('T3 Code/T3 Code.xcodeproj/project.pbxproj')
+          text = project.read_text()
+          assert text.count('IPHONEOS_DEPLOYMENT_TARGET = 18.0;') == 2
+          project.write_text(text.replace('IPHONEOS_DEPLOYMENT_TARGET = 18.0;', 'IPHONEOS_DEPLOYMENT_TARGET = 17.0;'))
+
+          timeline = Path('T3 Code/T3 Code/Features/Thread/MessageTimelineView.swift')
+          text = timeline.read_text()
+          start = text.index('                .onScrollGeometryChange(for: Bool.self)')
+          end = text.index('                .onChange(of: rows.count)', start)
+          text = text[:start] + '                .coordinateSpace(name: "messageTimeline")\n' + text[end:]
+          marker = '                    .padding(.bottom, T3Spacing.xxl)\n'
+          assert text.count(marker) == 1
+          observer = [
+              '                    .onGeometryChange(for: Bool.self) { geometry in',
+              '                        geometry.frame(in: .named("messageTimeline")).maxY',
+              '                            - viewport.size.height <= stickyThreshold',
+              '                    } action: { near in',
+              '                        isNearBottom = near',
+              '                        if near { hasNewWhileScrolledUp = false }',
+              '                    }',
+          ]
+          text = text.replace(marker, marker + '\n'.join(observer) + '\n')
+          start = text.index('            ZStack(alignment: .bottomTrailing)')
+          end = text.index('\n        }\n    }\n\n    @ViewBuilder', start)
+          text = text[:start] + '            GeometryReader { viewport in\n' + indent(text[start:end], '    ') + '\n            }' + text[end:]
+          timeline.write_text(text)
+          PY
+          mkdir -p build dist
+          git diff -- 'T3 Code' > dist/ios17-compatibility.patch
+      - name: Build arm64 app for iOS 17.0
+        run: |
+          set -o pipefail
+          xcodebuild -version
+          xcodebuild -quiet \
+            -project 'T3 Code/T3 Code.xcodeproj' \
+            -scheme 'T3 Code' \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            IPHONEOS_DEPLOYMENT_TARGET=17.0 \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' DEVELOPMENT_TEAM='' \
+            build 2>&1 | tee build/build.log
+      - name: Verify and package TrollStore IPA
+        run: |
+          mkdir -p build/package/Payload
+          ditto 'build/DerivedData/Build/Products/Release-iphoneos/T3 Code.app' 'build/package/Payload/T3 Code.app'
+          codesign --force --sign - 'build/package/Payload/T3 Code.app'
+          codesign --verify --deep --strict 'build/package/Payload/T3 Code.app'
+          python3 - <<'PY'
+          from pathlib import Path
+          import plistlib, struct
+          app = Path('build/package/Payload/T3 Code.app')
+          info = plistlib.loads((app / 'Info.plist').read_bytes())
+          assert info['MinimumOSVersion'] == '17.0', info
+          assert info['CFBundleIdentifier'] == 'com.belweave.T3-Code'
+          binary = (app / info['CFBundleExecutable']).read_bytes()
+          magic, cpu, subtype, kind, count, size, flags, reserved = struct.unpack_from('<8I', binary)
+          assert magic == 0xfeedfacf and cpu == 0x100000c and kind == 2
+          offset = 32
+          verified = False
+          for _ in range(count):
+              cmd, length = struct.unpack_from('<2I', binary, offset)
+              if cmd == 0x32:
+                  platform, minimum = struct.unpack_from('<2I', binary, offset + 8)
+                  assert platform == 2 and minimum == 17 << 16, (platform, minimum)
+                  verified = True
+              offset += length
+          assert verified, 'Missing iOS Mach-O build version'
+          report = f"Bundle: {info['CFBundleIdentifier']}\nVersion: {info['CFBundleShortVersionString']}\nMinimum iOS: {info['MinimumOSVersion']}\nArchitecture: arm64\nInstallation: TrollStore\nSignature: ad hoc; TrollStore signs during installation\n"
+          Path('dist/build-info.txt').write_text(report)
+          print(report)
+          PY
+          (cd build/package && ditto -c -k --keepParent Payload ../../dist/T3Code-iOS17-TrollStore.ipa)
+          unzip -t dist/T3Code-iOS17-TrollStore.ipa
+          shasum -a 256 dist/T3Code-iOS17-TrollStore.ipa > dist/SHA256SUMS.txt
+      - name: Upload IPA and compatibility patch
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: T3Code-iOS17-TrollStore
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: build-log
+          path: build/build.log
+          if-no-files-found: ignore
+          retention-days: 7
