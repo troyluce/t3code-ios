@@ -1,11 +1,10 @@
-name: 构建简体中文 iOS 17 TrollStore IPA
+name: 修复 iOS 配对 404 并构建中文版 IPA
 
 on:
   workflow_dispatch:
   push:
     paths:
       - '.github/workflows/ios17-ipa.yml'
-      - 'localization/zh-Hans.patch'
 
 permissions:
   contents: write
@@ -15,41 +14,233 @@ jobs:
     runs-on: macos-15-intel
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: 应用中文源码并检查通信字段
+      - name: 准备配对与协议回归测试
         run: |
-          mkdir -p build dist
-          if git apply --check localization/zh-Hans.patch; then
-            git apply localization/zh-Hans.patch
-          elif git apply --reverse --check localization/zh-Hans.patch; then
-            echo '中文源码已存在，直接构建。'
+          mkdir -p build dist tests
+          cat > tests/PairingRegression.swift <<'SWIFT'
+          import Foundation
+
+          enum T3Error: LocalizedError {
+              case pairingFailed(String), invalidServerURL
+              var errorDescription: String? {
+                  switch self {
+                  case .pairingFailed(let message): return message
+                  case .invalidServerURL: return "服务器地址无效"
+                  }
+              }
+          }
+
+          final class PairingStub: URLProtocol, @unchecked Sendable {
+              nonisolated(unsafe) static var legacy = false
+              nonisolated(unsafe) static var requests: [String] = []
+              override class func canInit(with request: URLRequest) -> Bool { true }
+              override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+              override func startLoading() {
+                  let path = request.url!.path
+                  Self.requests.append(path)
+                  var status = 404
+                  var json: [String: Any] = ["error": "route_not_found"]
+                  if path == "/oauth/token" && !Self.legacy {
+                      let body = bodyData()
+                      let form = String(data: body, encoding: .utf8) ?? ""
+                      let fields = URLComponents(string: "https://fixture.invalid/?" + form)?.queryItems ?? []
+                      let values = Dictionary(fields.map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { _, rhs in rhs })
+                      precondition(request.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("application/x-www-form-urlencoded") == true)
+                      precondition(values["grant_type"] == "urn:ietf:params:oauth:grant-type:token-exchange")
+                      precondition(values["subject_token"] == "fixture-pairing-code")
+                      precondition(values["subject_token_type"] == "urn:t3:params:oauth:token-type:environment-bootstrap")
+                      precondition(values["requested_token_type"] == "urn:ietf:params:oauth:token-type:access_token")
+                      status = 200
+                      json = ["access_token": "fixture-bearer", "token_type": "Bearer", "expires_in": 3600]
+                  } else if path == "/api/auth/bootstrap/bearer" && Self.legacy {
+                      status = 200
+                      json = ["sessionToken": "fixture-bearer"]
+                  } else if path == "/api/auth/websocket-ticket/rpc" && !Self.legacy {
+                      precondition(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-bearer")
+                      status = 200
+                      json = ["ticket": "fixture-ticket", "expiresAt": "2030-01-01T00:00:00Z"]
+                  } else if path == "/api/auth/ws-token" && Self.legacy {
+                      status = 200
+                      json = ["token": "fixture-ticket"]
+                  }
+                  let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+                  client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                  client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: json))
+                  client?.urlProtocolDidFinishLoading(self)
+              }
+              override func stopLoading() {}
+              private func bodyData() -> Data {
+                  if let data = request.httpBody { return data }
+                  guard let stream = request.httpBodyStream else { return Data() }
+                  stream.open()
+                  defer { stream.close() }
+                  var data = Data()
+                  var buffer = [UInt8](repeating: 0, count: 4096)
+                  while stream.hasBytesAvailable {
+                      let count = stream.read(&buffer, maxLength: buffer.count)
+                      if count <= 0 { break }
+                      data.append(contentsOf: buffer.prefix(count))
+                  }
+                  return data
+              }
+          }
+
+          @main
+          struct PairingRegression {
+              static func main() async {
+                  URLProtocol.registerClass(PairingStub.self)
+                  do {
+                      let base = URL(string: "https://fixture.invalid")!
+                      for legacy in [false, true] {
+                          PairingStub.legacy = legacy
+                          PairingStub.requests = []
+                          let result = try await PairingFlow.exchangeToken(serverURL: base, oneTimeToken: "fixture-pairing-code")
+                          precondition(result.bearerToken == "fixture-bearer")
+                          let ticket = try await PairingFlow.issueWebSocketToken(serverURL: base, bearerToken: result.bearerToken)
+                          precondition(ticket.token == "fixture-ticket")
+          #if FIXED_CLIENT
+                          let url = try PairingFlow.webSocketURL(serverURL: base, authorization: ticket, protocolVersion: legacy ? 1 : 2)
+                          let query = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!
+                          precondition(url.scheme == "wss" && url.path == "/ws")
+                          precondition(query.contains { $0.name == (legacy ? "wsToken" : "wsTicket") && $0.value == "fixture-ticket" })
+                          precondition(legacy || query.contains { $0.name == "orchestrationProtocol" && $0.value == "2" })
+          #endif
+                          print("PASS: \(legacy ? "legacy fallback" : "OAuth and WebSocket ticket")")
+                      }
+                      print("PASS: pairing 404 regression")
+                  } catch {
+                      print("FAIL: pairing 404 regression: \(error.localizedDescription)")
+                      exit(1)
+                  }
+              }
+          }
+          SWIFT
+          cat > tests/ProtocolV2Regression.swift <<'SWIFT'
+          import Foundation
+
+          enum T3Error: Error { case requestFailed(String) }
+
+          @main
+          struct ProtocolV2Regression {
+              static func main() throws {
+                  let adapter = OrchestrationV2()
+                  let date = "2026-01-01T00:00:00.000Z"
+                  let model: [String: Any] = ["instanceId": "provider-fixture", "model": "model-fixture"]
+                  let project: [String: Any] = ["id": "project-fixture", "title": "Fixture", "workspaceRoot": "/tmp/fixture", "createdAt": date, "updatedAt": date]
+                  let thread: [String: Any] = ["id": "thread-fixture", "projectId": "project-fixture", "title": "Fixture",
+                      "modelSelection": model, "runtimeMode": "full-access", "interactionMode": "default", "createdAt": date,
+                      "updatedAt": date, "status": "running", "latestRunId": "run-fixture", "activeRunId": "run-fixture"]
+                  let shell: [String: Any] = ["kind": "snapshot", "snapshot": ["schemaVersion": 2, "snapshotSequence": 1,
+                      "projects": [project], "threads": [thread], "archivedThreads": []]]
+                  let normalizedShell = try adapter.streamItem(shell, method: "orchestration.subscribeShell", input: [:])!
+                  guard case .snapshot(let decodedShell) = try ShellStreamItem.decode(from: normalizedShell) else { fatalError("Missing shell snapshot") }
+                  precondition(decodedShell.projects.count == 1 && decodedShell.threads.count == 1)
+                  precondition(decodedShell.threads[0].latestTurn?.state == .running)
+                  let enrichment: [String: Any] = ["kind": "snapshot", "resolvedRepositoryIdentityRoots": ["/tmp/fixture"],
+                      "snapshot": ["snapshotSequence": 1, "projects": [project], "threads": [], "archivedThreads": []]]
+                  let enriched = try adapter.streamItem(enrichment, method: "orchestration.subscribeShell", input: [:])!
+                  guard case .snapshot(let enrichedShell) = try ShellStreamItem.decode(from: enriched) else { fatalError("Missing enrichment") }
+                  precondition(enrichedShell.projects.count == 1 && enrichedShell.threads.count == 1)
+                  let completion = try adapter.streamItem(["kind": "synchronized"], method: "orchestration.subscribeShell", input: [:])
+                  precondition(completion == nil)
+                  let update: [String: Any] = ["kind": "thread.updated", "sequence": 2, "thread": thread]
+                  guard case .threadUpserted = try ShellStreamItem.decode(from: adapter.streamItem(update, method: "orchestration.subscribeShell", input: [:])!) else { fatalError("Missing shell update") }
+                  print("PASS: v2 shell snapshot, status, updates and completion marker")
+
+                  let message: [String: Any] = ["id": "message-fixture", "role": "assistant", "text": "Hello", "streaming": true,
+                      "createdAt": date, "updatedAt": date, "runId": "run-fixture", "attachments": []]
+                  let run: [String: Any] = ["id": "run-fixture", "ordinal": 1, "status": "running", "requestedAt": date]
+                  let projection: [String: Any] = ["thread": thread, "runs": [run], "messages": [message], "runtimeRequests": [],
+                      "turnItems": [], "plans": [], "providerSessions": [], "updatedAt": date]
+                  let input: [String: Any] = ["threadId": "thread-fixture"]
+                  let snapshot: [String: Any] = ["kind": "snapshot", "snapshotSequence": 3, "projection": projection]
+                  let normalizedThread = try adapter.streamItem(snapshot, method: "orchestration.subscribeThread", input: input)!
+                  guard case .snapshot(let detail, _) = try ThreadStreamItem.decode(from: normalizedThread) else { fatalError("Missing thread projection") }
+                  precondition(detail.messages.first?.text == "Hello")
+                  precondition(detail.messages.first?.turnId?.rawValue == "run-fixture")
+                  precondition(detail.latestTurn?.state == .running)
+                  var finished = message
+                  finished["text"] = "Hello world"
+                  finished["streaming"] = false
+                  let event: [String: Any] = ["kind": "event", "sequence": 4, "event": ["type": "message.updated", "payload": finished, "occurredAt": date]]
+                  let normalizedEvent = try adapter.streamItem(event, method: "orchestration.subscribeThread", input: input)!
+                  guard case .snapshot(let updated, _) = try ThreadStreamItem.decode(from: normalizedEvent) else { fatalError("Missing message update") }
+                  precondition(updated.messages.count == 1 && updated.messages[0].text == "Hello world" && !updated.messages[0].streaming)
+                  print("PASS: v2 thread projection and streaming message replacement")
+
+                  let command: [String: Any] = ["type": "thread.turn.start", "commandId": "command-fixture", "threadId": "thread-fixture",
+                      "message": ["messageId": "outgoing-fixture", "text": "Fixture prompt", "attachments": []],
+                      "runtimeMode": "full-access", "interactionMode": "default", "modelSelection": model]
+                  let send = try adapter.operations(for: command)
+                  precondition(send.count == 1 && send[0].payload["type"] as? String == "message.dispatch")
+                  precondition(send[0].payload["text"] as? String == "Fixture prompt")
+                  precondition((send[0].payload["dispatchMode"] as? [String: String])?["targetRunId"] == "run-fixture")
+                  var creation = command
+                  creation["bootstrap"] = ["createThread": ["projectId": "project-fixture", "title": "New fixture", "modelSelection": model,
+                      "runtimeMode": "approval-required", "interactionMode": "default"]]
+                  let launch = try adapter.operations(for: creation)
+                  precondition(launch.count == 1 && launch[0].method == "orchestration.launchThread")
+                  precondition((launch[0].payload["workspaceStrategy"] as? [String: String])?["type"] == "root")
+                  for (legacy, modern) in [("thread.approval.respond", "runtime-request.respond"), ("thread.user-input.respond", "runtime-request.respond"), ("thread.session.stop", "thread.stop")] {
+                      let operation = try adapter.operations(for: ["type": legacy, "threadId": "thread-fixture", "commandId": "fixture"])
+                      precondition(operation[0].payload["type"] as? String == modern)
+                  }
+                  let rename = try adapter.operations(for: ["type": "thread.meta.update", "threadId": "thread-fixture", "title": "Renamed", "commandId": "fixture"])
+                  precondition(rename[0].payload["type"] as? String == "thread.metadata.update")
+                  print("PASS: v2 send, steering, launch, approval, stop and rename commands")
+              }
+          }
+          SWIFT
+      - name: 在旧客户端复现配对 404
+        run: |
+          swiftc -swift-version 5 -parse-as-library \
+            'T3 Code/T3 Code/Core/Networking/Auth/PairingFlow.swift' \
+            'T3 Code/T3 Code/Core/Models/EnvironmentDescriptor.swift' \
+            'T3 Code/T3 Code/Core/Models/Identifiers.swift' \
+            tests/PairingRegression.swift -o build/auth-before
+          set +e
+          build/auth-before > build/auth-before.log 2>&1
+          T3_BASELINE_EXIT=$?
+          set -e
+          cat build/auth-before.log
+          if test "$T3_BASELINE_EXIT" -eq 0; then
+            echo '当前源码已包含配对修复。'
+          elif test "$T3_BASELINE_EXIT" -eq 1; then
+            echo '已复现：旧认证接口返回 404。'
           else
-            echo '中文补丁与当前源码不匹配。'
+            exit "$T3_BASELINE_EXIT"
+          fi
+      - name: 应用认证与第二版会话协议修复
+        run: |
+          if git apply --check compatibility/protocol-v2.patch; then
+            git apply compatibility/protocol-v2.patch
+          elif git apply --reverse --check compatibility/protocol-v2.patch; then
+            echo '兼容性修复已应用。'
+          else
+            echo '修复补丁与当前源码不匹配。'
             exit 1
           fi
+          cp compatibility/protocol-v2.patch dist/connection-fix.patch
+      - name: 验证真实客户端配对请求与协议适配
+        run: |
+          set -o pipefail
+          swiftc -swift-version 5 -D FIXED_CLIENT -parse-as-library \
+            'T3 Code/T3 Code/Core/Networking/Auth/PairingFlow.swift' \
+            'T3 Code/T3 Code/Core/Models/EnvironmentDescriptor.swift' \
+            'T3 Code/T3 Code/Core/Models/Identifiers.swift' \
+            tests/PairingRegression.swift -o build/auth-after
+          build/auth-after | tee build/auth-after.log
           python3 - <<'PYCODE'
-          from collections import Counter
           from pathlib import Path
-          import plistlib, re, subprocess
-          source = Path('T3 Code/T3 Code')
-          for path in (source / 'Core').rglob('*.swift'):
-              previous = subprocess.check_output(['git', 'show', f'HEAD:{path.as_posix()}'], text=True)
-              current = path.read_text()
-              patterns = [r'"((?:orchestration|server|vcs|git)\.[A-Za-z0-9_.]+)"', r'\["([A-Za-z][A-Za-z0-9_-]*)"\]', r'(?m)^\s*"([A-Za-z][A-Za-z0-9_-]*)"\s*:', r'case\s+"([A-Za-z0-9_.-]+)"']
-              for pattern in patterns:
-                  assert Counter(re.findall(pattern, previous)) == Counter(re.findall(pattern, current)), (path, pattern)
-          info = plistlib.loads(Path('T3 Code/Info.plist').read_bytes())
-          assert info['CFBundleDevelopmentRegion'] == 'zh-Hans'
-          assert info['CFBundleLocalizations'] == ['zh-Hans']
-          assert info['CFBundleDisplayName'] == 'T3 Code 中文'
-          assert '连接' in info['NSLocalNetworkUsageDescription']
-          assert '配对令牌' in (source / 'Features/Connection/ConnectionSetupView.swift').read_text()
-          assert '逐项审批' in (source / 'Features/Thread/ThreadView.swift').read_text()
-          print('中文文案、权限说明和通信字段检查通过。')
+          import subprocess
+          files = sorted(str(path) for path in Path('T3 Code/T3 Code/Core/Models').glob('*.swift'))
+          subprocess.run(['swiftc', '-swift-version', '5', '-parse-as-library', *files, 'T3 Code/T3 Code/Core/Networking/OrchestrationV2.swift', 'tests/ProtocolV2Regression.swift', '-o', 'build/protocol-tests'], check=True)
           PYCODE
-          cp localization/zh-Hans.patch dist/chinese-source.patch
+          build/protocol-tests | tee build/protocol-tests.log
+          cat build/auth-after.log build/protocol-tests.log > dist/regression-results.txt
       - name: 编译 iOS 17.0 arm64 应用
         run: |
           set -o pipefail
@@ -63,33 +254,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY='' DEVELOPMENT_TEAM='' \
             build 2>&1 | tee build/build.log
-      - name: 在模拟器启动中文界面并截图
-        run: |
-          set -o pipefail
-          T3_SIMULATOR_ID="$(python3 - <<'PYCODE'
-          import json, subprocess
-          data = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json']))
-          candidates = [(runtime, device) for runtime, devices in data['devices'].items() if '.iOS-18-' in runtime for device in devices if 'iPhone' in device['name'] and device.get('isAvailable')]
-          assert candidates, '缺少可用的 iOS 模拟器'
-          candidates.sort(key=lambda entry: (entry[0], entry[1]['name']), reverse=True)
-          print(candidates[0][1]['udid'])
-          PYCODE
-          )"
-          xcrun simctl boot "$T3_SIMULATOR_ID"
-          xcrun simctl bootstatus "$T3_SIMULATOR_ID" -b
-          xcodebuild -quiet \
-            -project 'T3 Code/T3 Code.xcodeproj' \
-            -scheme 'T3 Code' -configuration Release \
-            -sdk iphonesimulator -destination "id=$T3_SIMULATOR_ID" \
-            -derivedDataPath build/Simulator \
-            IPHONEOS_DEPLOYMENT_TARGET=17.0 ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY='' DEVELOPMENT_TEAM='' \
-            build 2>&1 | tee build/simulator-build.log
-          xcrun simctl install "$T3_SIMULATOR_ID" 'build/Simulator/Build/Products/Release-iphonesimulator/T3 Code.app'
-          xcrun simctl status_bar "$T3_SIMULATOR_ID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
-          xcrun simctl launch "$T3_SIMULATOR_ID" com.belweave.T3-Code -AppleLanguages '(zh-Hans)' -AppleLocale zh_CN
-          sleep 5
-          xcrun simctl io "$T3_SIMULATOR_ID" screenshot dist/chinese-interface.png
       - name: 验证并打包 TrollStore IPA
         run: |
           mkdir -p build/package/Payload
@@ -103,7 +267,7 @@ jobs:
           info = plistlib.loads((app / 'Info.plist').read_bytes())
           assert info['MinimumOSVersion'] == '17.0'
           assert info['CFBundleIdentifier'] == 'com.belweave.T3-Code'
-          assert info['CFBundleVersion'] == '2'
+          assert info['CFBundleVersion'] == '3'
           assert info['CFBundleDevelopmentRegion'] == 'zh-Hans'
           assert info['CFBundleLocalizations'] == ['zh-Hans']
           assert info['CFBundleDisplayName'] == 'T3 Code 中文'
@@ -124,32 +288,32 @@ jobs:
           Path('dist/build-info.txt').write_text(report)
           print(report)
           PYCODE
-          (cd build/package && ditto -c -k --keepParent Payload ../../dist/T3Code-iOS17-zh-Hans-TrollStore.ipa)
-          unzip -t dist/T3Code-iOS17-zh-Hans-TrollStore.ipa
-          shasum -a 256 dist/T3Code-iOS17-zh-Hans-TrollStore.ipa > dist/SHA256SUMS.txt
-      - name: 将验证通过的中文源码提交到当前仓库
+          (cd build/package && ditto -c -k --keepParent Payload ../../dist/T3Code-iOS17-zh-Hans-0.1.7-TrollStore.ipa)
+          unzip -t dist/T3Code-iOS17-zh-Hans-0.1.7-TrollStore.ipa
+          shasum -a 256 dist/T3Code-iOS17-zh-Hans-0.1.7-TrollStore.ipa > dist/SHA256SUMS.txt
+      - name: 提交验证通过的兼容性修复
         run: |
-          if ! git diff --quiet -- 'T3 Code' || test -n "$(git ls-files --others --exclude-standard -- 'T3 Code')"; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add -- 'T3 Code'
-            git commit -m '将 iOS 客户端界面本地化为简体中文，支持 iOS 17.0'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- 'T3 Code' tests
+          if ! git diff --cached --quiet; then
+            git commit -m '修复旧配对接口 404，兼容 OAuth、WebSocket 票据和第二版会话协议'
             git push origin HEAD:main
           fi
           git rev-parse HEAD > dist/source-commit.txt
-          git archive --format=zip --output=dist/T3Code-Chinese-Source.zip HEAD -- 'T3 Code'
-      - name: 上传中文版 IPA、源码和界面截图
+          git archive --format=zip --output=dist/T3Code-Connection-Fix-Source.zip HEAD -- 'T3 Code' tests
+      - name: 上传连接修复版中文版 IPA
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: T3Code-iOS17-zh-Hans-TrollStore
+          name: T3Code-iOS17-zh-Hans-ConnectionFix
           path: dist/
           if-no-files-found: error
           retention-days: 30
-      - name: 保存编译日志
+      - name: 保存编译和回归测试日志
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: chinese-build-log
+          name: connection-fix-build-log
           path: build/*.log
           if-no-files-found: ignore
           retention-days: 7
