@@ -1,0 +1,704 @@
+--- a/T3 Code/T3 Code/App/AppEnvironment.swift
++++ b/T3 Code/T3 Code/App/AppEnvironment.swift
+@@ -143,8 +143,21 @@
+         if let existing = client {
+             await existing.stop()
+         }
+-        let conn = T3Connection(config: .init(serverURL: serverURL, bearerToken: bearerToken))
+-        let cli = T3Client(connection: conn)
++        let protocolVersion: Int
++        do {
++            let descriptor = try await PairingFlow.fetchEnvironment(serverURL: serverURL)
++            protocolVersion = descriptor.orchestrationProtocolVersion ?? 1
++            guard (1...2).contains(protocolVersion) else {
++                connectionStatus = .error("服务器会话协议版本为 \(protocolVersion)，请更新 iOS 客户端。")
++                return
++            }
++        } catch {
++            connectionStatus = .error(ChineseLocalization.errorDescription(error))
++            return
++        }
++        let conn = T3Connection(config: .init(serverURL: serverURL, bearerToken: bearerToken,
++                                             orchestrationProtocolVersion: protocolVersion))
++        let cli = T3Client(connection: conn, protocolVersion: protocolVersion)
+         connection = conn
+         client = cli
+ 
+--- a/T3 Code/T3 Code/Core/Models/Activity.swift
++++ b/T3 Code/T3 Code/Core/Models/Activity.swift
+@@ -16,12 +16,16 @@
+     case command
+     case fileRead = "file-read"
+     case fileChange = "file-change"
++    case permission
++    case elicitation = "mcp-elicitation"
+ 
+     var displayLabel: String {
+         switch self {
+         case .command: "执行命令"
+         case .fileRead: "读取文件"
+         case .fileChange: "修改文件"
++        case .permission: "权限请求"
++        case .elicitation: "信息请求"
+         }
+     }
+ 
+@@ -30,6 +34,8 @@
+         case .command: "terminal"
+         case .fileRead: "doc.text.magnifyingglass"
+         case .fileChange: "pencil.and.outline"
++        case .permission: "lock.shield"
++        case .elicitation: "questionmark.bubble"
+         }
+     }
+ }
+--- a/T3 Code/T3 Code/Core/Models/EnvironmentDescriptor.swift
++++ b/T3 Code/T3 Code/Core/Models/EnvironmentDescriptor.swift
+@@ -5,6 +5,8 @@
+     let bootstrapMethods: [String]
+     let sessionMethods: [String]
+     let sessionCookieName: String?
++    let serverVersion: String?
++    let orchestrationProtocolVersion: Int?
+ 
+     static func decodeLenient(_ data: Data) -> EnvironmentDescriptor? {
+         guard let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+@@ -12,10 +14,13 @@
+         let bootstrap = (raw["bootstrapMethods"] as? [String]) ?? []
+         let session = (raw["sessionMethods"] as? [String]) ?? []
+         let cookieName = raw["sessionCookieName"] as? String
++        guard raw["serverVersion"] is String || raw["policy"] is String else { return nil }
+         return EnvironmentDescriptor(policy: policy,
+                                      bootstrapMethods: bootstrap,
+                                      sessionMethods: session,
+-                                     sessionCookieName: cookieName)
++                                     sessionCookieName: cookieName,
++                                     serverVersion: raw["serverVersion"] as? String,
++                                     orchestrationProtocolVersion: raw["orchestrationProtocolVersion"] as? Int)
+     }
+ }
+ 
+--- a/T3 Code/T3 Code/Core/Models/Thread.swift
++++ b/T3 Code/T3 Code/Core/Models/Thread.swift
+@@ -3,6 +3,7 @@
+ enum RuntimeMode: String, Codable, Sendable {
+     case approvalRequired = "approval-required"
+     case autoAcceptEdits  = "auto-accept-edits"
++    case automatic       = "auto"
+     case fullAccess       = "full-access"
+ }
+ 
+--- a/T3 Code/T3 Code/Core/Networking/Auth/PairingFlow.swift
++++ b/T3 Code/T3 Code/Core/Networking/Auth/PairingFlow.swift
+@@ -7,82 +7,109 @@
+ enum PairingFlow {
+     struct WebSocketToken: Sendable {
+         let token: String
++        let parameterName: String
+     }
+ 
+     static func fetchEnvironment(serverURL: URL) async throws -> EnvironmentDescriptor {
+-        let url = serverBaseURL(from: serverURL).appendingPathComponent(".well-known/t3/environment")
+-        var request = URLRequest(url: url)
+-        request.httpMethod = "GET"
++        var request = URLRequest(url: serverBaseURL(from: serverURL).appendingPathComponent(".well-known/t3/environment"))
+         request.timeoutInterval = 10
+         let (data, response) = try await URLSession.shared.data(for: request)
+-        guard let http = response as? HTTPURLResponse else {
+-            throw T3Error.pairingFailed("服务器没有响应")
+-        }
+-        guard http.statusCode == 200 else {
+-            throw T3Error.pairingFailed(
+-                "获取服务器环境失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
+-            )
++        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
++            throw T3Error.pairingFailed("无法读取 T3 Code 服务器环境信息。")
+         }
+         guard let descriptor = EnvironmentDescriptor.decodeLenient(data) else {
+-            throw T3Error.pairingFailed("服务器环境信息无效")
++            throw T3Error.pairingFailed("此地址未返回有效的 T3 Code 服务器信息。")
+         }
+         return descriptor
+     }
+ 
+     static func exchangeToken(serverURL: URL, oneTimeToken: String) async throws -> PairingResult {
+-        let url = serverBaseURL(from: serverURL).appendingPathComponent("api/auth/bootstrap/bearer")
+-        var request = URLRequest(url: url)
++        var request = URLRequest(url: serverBaseURL(from: serverURL).appendingPathComponent("oauth/token"))
+         request.httpMethod = "POST"
+-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
++        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+         request.timeoutInterval = 15
+-        let body: [String: Any] = ["credential": oneTimeToken]
+-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+-
++        var form = URLComponents()
++        form.queryItems = [
++            URLQueryItem(name: "grant_type", value: "urn:ietf:params:oauth:grant-type:token-exchange"),
++            URLQueryItem(name: "subject_token", value: oneTimeToken),
++            URLQueryItem(name: "subject_token_type", value: "urn:t3:params:oauth:token-type:environment-bootstrap"),
++            URLQueryItem(name: "requested_token_type", value: "urn:ietf:params:oauth:token-type:access_token"),
++            URLQueryItem(name: "client_label", value: "T3 Code iOS 中文版"),
++            URLQueryItem(name: "client_device_type", value: "mobile"),
++            URLQueryItem(name: "client_os", value: "iOS")
++        ]
++        request.httpBody = form.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B").data(using: .utf8)
+         let (data, response) = try await URLSession.shared.data(for: request)
+-        guard let http = response as? HTTPURLResponse else {
+-            throw T3Error.pairingFailed("服务器没有响应")
++        guard let http = response as? HTTPURLResponse else { throw T3Error.pairingFailed("服务器没有响应") }
++        if http.statusCode == 404 || http.statusCode == 405 {
++            return try await exchangeLegacyToken(serverURL: serverURL, oneTimeToken: oneTimeToken)
+         }
+         if http.statusCode == 401 || http.statusCode == 403 {
+-            throw T3Error.pairingFailed("配对令牌被拒绝：\(errorMessage(from: data))")
++            throw T3Error.pairingFailed("配对链接已失效或已被使用，请在桌面端重新生成。")
+         }
+         guard (200...299).contains(http.statusCode) else {
+-            throw T3Error.pairingFailed(
+-                "配对失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
+-            )
++            throw T3Error.pairingFailed("配对失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))")
+         }
+-
+-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+-            if let token = (json["sessionToken"] ?? json["token"] ?? json["bearer"]) as? String,
+-               !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+-                return PairingResult(bearerToken: token)
+-            }
++        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
++              let token = json["access_token"] as? String, !token.isEmpty,
++              (json["token_type"] as? String)?.lowercased() == "bearer" else {
++            throw T3Error.pairingFailed("服务器未返回有效的 Bearer 登录令牌。")
+         }
+-
+-        throw T3Error.pairingFailed("配对响应中缺少登录令牌")
++        return PairingResult(bearerToken: token)
+     }
+ 
+     static func issueWebSocketToken(serverURL: URL, bearerToken: String) async throws -> WebSocketToken {
+-        let url = serverBaseURL(from: serverURL).appendingPathComponent("api/auth/ws-token")
+-        var request = URLRequest(url: url)
++        for endpoint in ["api/auth/websocket-ticket/rpc", "api/auth/websocket-ticket", "api/auth/ws-token"] {
++            var request = URLRequest(url: serverBaseURL(from: serverURL).appendingPathComponent(endpoint))
++            request.httpMethod = "POST"
++            request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
++            request.timeoutInterval = 10
++            let (data, response) = try await URLSession.shared.data(for: request)
++            guard let http = response as? HTTPURLResponse else { throw T3Error.pairingFailed("服务器没有响应") }
++            if http.statusCode == 404 || http.statusCode == 405 { continue }
++            guard (200...299).contains(http.statusCode) else {
++                throw T3Error.pairingFailed("获取 WebSocket 票据失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))")
++            }
++            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
++                  let token = (json["ticket"] ?? json["token"]) as? String, !token.isEmpty else {
++                throw T3Error.pairingFailed("WebSocket 票据响应无效")
++            }
++            return WebSocketToken(token: token, parameterName: endpoint.hasSuffix("ws-token") ? "wsToken" : "wsTicket")
++        }
++        throw T3Error.pairingFailed("服务器未提供兼容的 WebSocket 认证接口，请检查桌面端版本。")
++    }
++
++    static func webSocketURL(serverURL: URL, authorization: WebSocketToken?, protocolVersion: Int) throws -> URL {
++        guard var components = URLComponents(url: serverBaseURL(from: serverURL), resolvingAgainstBaseURL: false) else { throw T3Error.invalidServerURL }
++        switch components.scheme?.lowercased() {
++        case "https", "wss": components.scheme = "wss"
++        case "http", "ws": components.scheme = "ws"
++        default: throw T3Error.invalidServerURL
++        }
++        components.path = "/ws"
++        var items: [URLQueryItem] = []
++        if protocolVersion >= 2 { items.append(URLQueryItem(name: "orchestrationProtocol", value: String(protocolVersion))) }
++        if let authorization { items.append(URLQueryItem(name: authorization.parameterName, value: authorization.token)) }
++        components.queryItems = items.isEmpty ? nil : items
++        guard let url = components.url else { throw T3Error.invalidServerURL }
++        return url
++    }
++
++    private static func exchangeLegacyToken(serverURL: URL, oneTimeToken: String) async throws -> PairingResult {
++        var request = URLRequest(url: serverBaseURL(from: serverURL).appendingPathComponent("api/auth/bootstrap/bearer"))
+         request.httpMethod = "POST"
+-        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+-        request.timeoutInterval = 10
+-
++        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
++        request.httpBody = try JSONSerialization.data(withJSONObject: ["credential": oneTimeToken])
++        request.timeoutInterval = 15
+         let (data, response) = try await URLSession.shared.data(for: request)
+-        guard let http = response as? HTTPURLResponse else {
+-            throw T3Error.pairingFailed("服务器没有响应")
+-        }
+-        guard (200...299).contains(http.statusCode) else {
+-            throw T3Error.pairingFailed(
+-                "获取 WebSocket 令牌失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
+-            )
++        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
++            throw T3Error.pairingFailed("旧版配对接口不可用，请检查桌面端版本并重新生成配对链接。")
+         }
+         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+-              let token = json["token"] as? String,
+-              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+-            throw T3Error.pairingFailed("WebSocket 令牌响应无效")
++              let token = (json["sessionToken"] ?? json["token"] ?? json["bearer"]) as? String, !token.isEmpty else {
++            throw T3Error.pairingFailed("配对响应中缺少登录令牌")
+         }
+-        return WebSocketToken(token: token)
++        return PairingResult(bearerToken: token)
+     }
+ 
+     static func parsePairingURL(_ raw: String) -> (serverURL: URL, token: String)? {
+@@ -135,14 +162,14 @@
+ 
+     private static func errorMessage(from data: Data) -> String {
+         if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+-           let message = json["error"] as? String,
++           let message = (json["error_description"] ?? json["message"] ?? json["reason"] ?? json["error"]) as? String,
+            !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+-            return message
++            return String(message.prefix(300))
+         }
+         if let text = String(data: data, encoding: .utf8)?
+             .trimmingCharacters(in: .whitespacesAndNewlines),
+            !text.isEmpty {
+-            return text
++            return String(text.prefix(300))
+         }
+         return "响应为空"
+     }
+--- /dev/null
++++ b/T3 Code/T3 Code/Core/Networking/OrchestrationV2.swift
+@@ -0,0 +1,230 @@
++import Foundation
++
++/// Adapts protocol 2 records to the app's timeline and command interfaces.
++/// Instances are owned by T3Client and accessed only on that actor.
++final class OrchestrationV2 {
++    struct Operation {
++        let method: String
++        let payload: [String: Any]
++    }
++
++    private var projections: [String: [String: Any]] = [:]
++    private var shells: [String: [String: Any]] = [:]
++
++    func streamItem(_ value: Any, method: String, input: Any) throws -> Any? {
++        guard var item = value as? [String: Any], let kind = item["kind"] as? String else { return value }
++        if kind == "synchronized" || kind == "unknown-event" { return nil }
++        if method == "orchestration.subscribeShell" {
++            if kind == "snapshot", var snapshot = item["snapshot"] as? [String: Any] {
++                let threads = (snapshot["threads"] as? [[String: Any]] ?? []) + (snapshot["archivedThreads"] as? [[String: Any]] ?? [])
++                snapshot["threads"] = threads.map { thread in
++                    if let id = thread["id"] as? String { shells[id] = thread }
++                    return normalizeShell(thread)
++                }
++                snapshot["updatedAt"] = latestDate(threads, fallback: "1970-01-01T00:00:00Z")
++                item["snapshot"] = snapshot
++            } else {
++                let aliases = ["project.updated": "project-upserted", "project.removed": "project-removed",
++                               "thread.updated": "thread-upserted", "thread.removed": "thread-removed"]
++                guard let translated = aliases[kind] else { return nil }
++                item["kind"] = translated
++                if let thread = item["thread"] as? [String: Any] {
++                    if let id = thread["id"] as? String { shells[id] = thread }
++                    item["thread"] = normalizeShell(thread)
++                }
++            }
++            return item
++        }
++        guard method == "orchestration.subscribeThread",
++              let threadId = (input as? [String: Any])?["threadId"] as? String else { return value }
++        let sequence = item["snapshotSequence"] as? Int ?? item["sequence"] as? Int ?? 0
++        if kind == "snapshot", let projection = item["projection"] as? [String: Any] {
++            projections[threadId] = projection
++        } else if kind == "event", let event = item["event"] as? [String: Any],
++                  let type = event["type"] as? String, let payload = event["payload"] as? [String: Any],
++                  var projection = projections[threadId] {
++            if type.hasPrefix("thread."), payload["modelSelection"] != nil {
++                projection["thread"] = payload
++            } else {
++                let collections = ["run": "runs", "run-attempt": "attempts", "node": "nodes", "subagent": "subagents",
++                                   "provider-session": "providerSessions", "provider-thread": "providerThreads",
++                                   "provider-turn": "providerTurns", "runtime-request": "runtimeRequests",
++                                   "message": "messages", "turn-item": "turnItems", "plan": "plans"]
++                if type == "provider-session.detached", let id = payload["providerSessionId"] as? String {
++                    projection["providerSessions"] = records(projection, "providerSessions").filter { $0["id"] as? String != id }
++                } else if let prefix = type.split(separator: ".").first.map(String.init),
++                          let collection = collections[prefix], let id = payload["id"] as? String {
++                    var values = records(projection, collection)
++                    if let index = values.firstIndex(where: { $0["id"] as? String == id }) { values[index] = payload }
++                    else { values.append(payload) }
++                    projection[collection] = values
++                }
++            }
++            projection["updatedAt"] = event["occurredAt"] ?? projection["updatedAt"]
++            projections[threadId] = projection
++        } else { return nil }
++        guard let projection = projections[threadId] else { return nil }
++        return ["kind": "snapshot", "snapshot": ["snapshotSequence": sequence, "thread": normalizeProjection(projection)]]
++    }
++
++    func operations(for command: [String: Any]) throws -> [Operation] {
++        guard let type = command["type"] as? String else { throw T3Error.requestFailed("会话命令缺少类型。") }
++        var value = command
++        value.removeValue(forKey: "createdAt")
++        switch type {
++        case "thread.turn.start":
++            guard let message = value["message"] as? [String: Any], let threadId = value["threadId"] as? String else {
++                throw T3Error.requestFailed("消息内容无效。")
++            }
++            if let bootstrap = value["bootstrap"] as? [String: Any], let creation = bootstrap["createThread"] as? [String: Any] {
++                var launch = creation
++                launch.removeValue(forKey: "createdAt")
++                launch.removeValue(forKey: "branch")
++                launch.removeValue(forKey: "worktreePath")
++                launch["commandId"] = value["commandId"]
++                launch["threadId"] = threadId
++                launch["workspaceStrategy"] = ["type": "root"]
++                launch["initialMessage"] = ["messageId": message["messageId"] ?? UUID().uuidString,
++                                             "text": message["text"] ?? "", "attachments": message["attachments"] ?? []]
++                return [Operation(method: "orchestration.launchThread", payload: launch)]
++            }
++            var operations: [Operation] = []
++            let thread = projections[threadId]?["thread"] as? [String: Any] ?? shells[threadId]
++            for (field, commandType) in [("runtimeMode", "thread.runtime-mode.set"), ("interactionMode", "thread.interaction-mode.set")] {
++                if let desired = value[field] as? String, let current = thread?[field] as? String, desired != current {
++                    operations.append(Operation(method: "orchestration.dispatchCommand", payload: ["type": commandType,
++                        "commandId": UUID().uuidString, "threadId": threadId, field: desired]))
++                }
++            }
++            var dispatch: [String: Any] = ["type": "message.dispatch", "commandId": value["commandId"] ?? UUID().uuidString,
++                "threadId": threadId, "messageId": message["messageId"] ?? UUID().uuidString,
++                "text": message["text"] ?? "", "attachments": message["attachments"] ?? []]
++            if let model = value["modelSelection"] { dispatch["modelSelection"] = model }
++            if let source = value["sourceProposedPlan"] { dispatch["sourcePlanRef"] = source }
++            if let activeRun = activeRunId(threadId) {
++                dispatch["dispatchMode"] = ["type": "steer_active", "targetRunId": activeRun]
++            } else { dispatch["dispatchMode"] = ["type": "start_immediately"] }
++            operations.append(Operation(method: "orchestration.dispatchCommand", payload: dispatch))
++            return operations
++        case "thread.turn.interrupt":
++            if let run = (value["threadId"] as? String).flatMap(activeRunId) ?? value["turnId"] as? String {
++                value["type"] = "run.interrupt"
++                value["runId"] = run
++                value.removeValue(forKey: "turnId")
++            } else { value["type"] = "thread.stop" }
++        case "thread.session.stop": value["type"] = "thread.stop"
++        case "thread.approval.respond", "thread.user-input.respond": value["type"] = "runtime-request.respond"
++        case "thread.meta.update":
++            value["type"] = value["modelSelection"] == nil ? "thread.metadata.update" : "thread.model-selection.set"
++        default: break
++        }
++        return [Operation(method: "orchestration.dispatchCommand", payload: value)]
++    }
++
++    private func activeRunId(_ threadId: String) -> String? {
++        if let projection = projections[threadId], let run = records(projection, "runs").last(where: {
++            ["preparing", "starting", "running", "waiting"].contains($0["status"] as? String ?? "")
++        }) {
++            return run["id"] as? String
++        }
++        return shells[threadId]?["activeRunId"] as? String
++    }
++
++    private func normalizeShell(_ source: [String: Any]) -> [String: Any] {
++        var thread = source
++        let pending = source["pendingRuntimeRequest"] as? [String: Any]
++        thread["hasPendingUserInput"] = pending?["kind"] as? String == "user_input"
++        thread["hasPendingApprovals"] = pending != nil && pending?["kind"] as? String != "user_input"
++        if let id = source["latestRunId"] as? String {
++            let fallback = source["updatedAt"] as? String ?? "1970-01-01T00:00:00Z"
++            thread["latestTurn"] = ["turnId": id, "state": state(source["status"] as? String),
++                "requestedAt": source["latestRunRequestedAt"] as? String ?? fallback,
++                "startedAt": source["latestRunStartedAt"] ?? NSNull(),
++                "completedAt": source["latestRunCompletedAt"] ?? NSNull()]
++        }
++        return thread
++    }
++
++    private func normalizeProjection(_ projection: [String: Any]) -> [String: Any] {
++        var thread = projection["thread"] as? [String: Any] ?? [:]
++        let threadId = thread["id"] as? String ?? ""
++        let fallback = projection["updatedAt"] as? String ?? thread["updatedAt"] as? String ?? "1970-01-01T00:00:00Z"
++        let runs = records(projection, "runs")
++        if let run = runs.max(by: { ($0["ordinal"] as? Int ?? 0) < ($1["ordinal"] as? Int ?? 0) }) {
++            thread["latestTurn"] = ["turnId": run["id"] ?? "", "state": state(run["status"] as? String),
++                "requestedAt": run["requestedAt"] ?? fallback, "startedAt": run["startedAt"] ?? NSNull(),
++                "completedAt": run["completedAt"] ?? NSNull()]
++        }
++        var messages = records(projection, "messages")
++        let inheritedItems = records(projection, "visibleTurnItems").compactMap { $0["item"] as? [String: Any] }
++        for item in inheritedItems {
++            guard let type = item["type"] as? String, ["user_message", "assistant_message"].contains(type),
++                  let id = item["messageId"] as? String, !messages.contains(where: { $0["id"] as? String == id }) else { continue }
++            messages.append(["id": id, "role": type == "user_message" ? "user" : "assistant", "text": item["text"] ?? "",
++                "streaming": item["streaming"] ?? false, "attachments": item["attachments"] ?? [],
++                "runId": item["runId"] ?? NSNull(), "createdAt": item["startedAt"] as? String ?? item["updatedAt"] as? String ?? fallback,
++                "updatedAt": item["updatedAt"] ?? fallback])
++        }
++        thread["messages"] = messages.map { message in
++            var result = message
++            result["turnId"] = message["runId"]
++            return result
++        }
++        let sessions = records(projection, "providerSessions")
++        if let session = sessions.max(by: { ($0["updatedAt"] as? String ?? "") < ($1["updatedAt"] as? String ?? "") }) {
++            let status = session["status"] as? String ?? "ready"
++            thread["session"] = ["threadId": threadId, "status": status == "waiting" ? "running" : status,
++                "providerName": session["driver"] ?? NSNull(), "providerInstanceId": session["providerInstanceId"] ?? NSNull(),
++                "runtimeMode": thread["runtimeMode"] ?? "approval-required", "activeTurnId": activeRunId(threadId) as Any? ?? NSNull(),
++                "lastError": session["lastError"] ?? NSNull(), "updatedAt": session["updatedAt"] ?? fallback]
++        }
++        var items = records(projection, "turnItems")
++        for item in inheritedItems where !items.contains(where: { $0["id"] as? String == item["id"] as? String }) { items.append(item) }
++        let pending = records(projection, "runtimeRequests").filter { $0["status"] as? String == "pending" }
++        var activities: [[String: Any]] = []
++        for request in pending {
++            guard let id = request["id"] as? String else { continue }
++            let item = items.first { $0["requestId"] as? String == id } ?? [:]
++            let kind = request["kind"] as? String ?? "command"
++            var payload: [String: Any] = ["requestId": id, "requestKind": kind,
++                "detail": item["prompt"] ?? item["reason"] ?? item["title"] ?? "需要确认"]
++            payload["questions"] = item["questions"] ?? []
++            activities.append(["id": "request:" + id, "kind": kind == "user_input" ? "user-input.requested" : "approval.requested",
++                "summary": kind == "user_input" ? "需要补充信息" : "需要审批", "tone": "approval",
++                "createdAt": request["createdAt"] ?? fallback, "payload": payload])
++        }
++        for item in items {
++            let type = item["type"] as? String ?? ""
++            guard ["command_execution", "file_change", "reasoning", "dynamic_tool", "provider_error"].contains(type) else { continue }
++            let running = isActive(item["status"] as? String)
++            let title = item["title"] as? String ?? ["command_execution": "执行命令", "file_change": "修改文件",
++                "reasoning": "思考", "dynamic_tool": "调用工具", "provider_error": "服务商错误"][type] ?? "工具活动"
++            var details: [String: Any] = [:]
++            if type == "command_execution" { details["command"] = item["input"] }
++            if let file = item["fileName"] as? String { details["changedFiles"] = [file] }
++            let payload: [String: Any] = ["title": title, "itemType": type,
++                "detail": item["output"] ?? item["diffStr"] ?? item["text"] ?? "", "data": ["item": details]]
++            activities.append(["id": item["id"] ?? UUID().uuidString, "kind": running ? "tool.updated" : "tool.completed",
++                "summary": title, "tone": type == "reasoning" ? "thinking" : "tool",
++                "createdAt": item["startedAt"] as? String ?? item["updatedAt"] as? String ?? fallback,
++                "turnId": item["runId"] ?? NSNull(), "payload": payload])
++        }
++        thread["activities"] = activities
++        thread["proposedPlans"] = records(projection, "plans").filter { $0["kind"] as? String == "proposed_plan" }.map { plan in
++            ["id": plan["id"] ?? "", "turnId": plan["runId"] ?? NSNull(), "planMarkdown": plan["markdown"] ?? "",
++             "createdAt": fallback, "updatedAt": fallback,
++             "implementedAt": plan["status"] as? String == "completed" ? fallback as Any : NSNull()]
++        }
++        return thread
++    }
++
++    private func records(_ object: [String: Any], _ key: String) -> [[String: Any]] { object[key] as? [[String: Any]] ?? [] }
++    private func latestDate(_ records: [[String: Any]], fallback: String) -> String { records.compactMap { $0["updatedAt"] as? String }.max() ?? fallback }
++    private func isActive(_ value: String?) -> Bool { ["queued", "preparing", "starting", "running", "waiting", "pending"].contains(value ?? "") }
++    private func state(_ value: String?) -> String {
++        if isActive(value) { return "running" }
++        if value == "failed" || value == "error" { return "error" }
++        if value == "cancelled" || value == "interrupted" { return "interrupted" }
++        return "completed"
++    }
++}
+--- a/T3 Code/T3 Code/Core/Networking/T3Client.swift
++++ b/T3 Code/T3 Code/Core/Networking/T3Client.swift
+@@ -8,6 +8,8 @@
+     }
+ 
+     private let connection: T3Connection
++    private let protocolVersion: Int
++    private let version2 = OrchestrationV2()
+     private var pendingResponses: [String: CheckedContinuation<Any?, Error>] = [:]
+     private var streamSubscribers: [String: (Any) -> Void] = [:]
+     private var subscriptionTemplates: [String: SubscriptionTemplate] = [:]
+@@ -16,8 +18,9 @@
+     private(set) var status: T3Connection.ConnectionStatus = .offline
+     private var statusListeners: [(T3Connection.ConnectionStatus) -> Void] = []
+ 
+-    init(connection: T3Connection) {
++    init(connection: T3Connection, protocolVersion: Int = 1) {
+         self.connection = connection
++        self.protocolVersion = protocolVersion
+     }
+ 
+     @discardableResult
+@@ -108,7 +111,15 @@
+         case let .chunk(requestId, values):
+             if let listener = streamSubscribers[requestId] {
+                 for v in values {
+-                    listener(v)
++                    do {
++                        if protocolVersion >= 2, let template = subscriptionTemplates[requestId] {
++                            if let adapted = try version2.streamItem(v, method: template.method, input: template.payload) {
++                                listener(adapted)
++                            }
++                        } else { listener(v) }
++                    } catch {
++                        await update(status: .error(ChineseLocalization.errorDescription(error)))
++                    }
+                 }
+                 try? await connection.send([.ack(requestId: requestId)])
+             }
+@@ -127,6 +138,28 @@
+     }
+ 
+     func request(method: String, payload: Any) async throws -> Any? {
++        if protocolVersion >= 2, method == "orchestration.dispatchCommand", var command = payload as? [String: Any] {
++            if var message = command["message"] as? [String: Any],
++               let attachments = message["attachments"] as? [[String: Any]], !attachments.isEmpty {
++                let upload: [String: Any] = ["threadId": command["threadId"] ?? "",
++                    "messageId": message["messageId"] ?? "", "attachments": attachments]
++                guard let result = try await requestRaw(method: "assets.persistChatAttachments", payload: upload) as? [String: Any],
++                      let stored = result["attachments"] as? [[String: Any]] else {
++                    throw T3Error.requestFailed("上传图片时服务器返回了无效响应。")
++                }
++                message["attachments"] = stored
++                command["message"] = message
++            }
++            var result: Any?
++            for operation in try version2.operations(for: command) {
++                result = try await requestRaw(method: operation.method, payload: operation.payload)
++            }
++            return result
++        }
++        return try await requestRaw(method: method, payload: payload)
++    }
++
++    private func requestRaw(method: String, payload: Any) async throws -> Any? {
+         let id = await connection.nextRequestId()
+         return try await withCheckedThrowingContinuation { continuation in
+             pendingResponses[id] = continuation
+--- a/T3 Code/T3 Code/Core/Networking/T3Connection.swift
++++ b/T3 Code/T3 Code/Core/Networking/T3Connection.swift
+@@ -8,6 +8,7 @@
+     struct Config: Sendable {
+         var serverURL: URL
+         var bearerToken: String?
++        var orchestrationProtocolVersion: Int = 1
+     }
+ 
+     private var config: Config
+@@ -78,20 +79,18 @@
+         teardownConnection(yieldOffline: false)
+         statusContinuation?.yield(.connecting)
+ 
+-        guard var wsURL = makeWebSocketURL() else {
+-            statusContinuation?.yield(.error("服务器地址无效"))
+-            scheduleReconnect()
+-            return false
+-        }
+-
++        let wsURL: URL
+         do {
++            var authorization: PairingFlow.WebSocketToken?
+             if let token = config.bearerToken, !token.isEmpty {
+                 let issued = try await PairingFlow.issueWebSocketToken(
+                     serverURL: config.serverURL,
+                     bearerToken: token
+                 )
+-                wsURL = try webSocketURL(wsURL, addingToken: issued.token)
+-            }
++                authorization = issued
++            }
++            wsURL = try PairingFlow.webSocketURL(serverURL: config.serverURL, authorization: authorization,
++                                                protocolVersion: config.orchestrationProtocolVersion)
+         } catch {
+             statusContinuation?.yield(.error(formatConnectionError(error)))
+             scheduleReconnect()
+@@ -232,32 +231,6 @@
+ 
+     private func isCurrentTask(_ candidate: URLSessionWebSocketTask) -> Bool {
+         task === candidate
+-    }
+-
+-    private func makeWebSocketURL() -> URL? {
+-        var components = URLComponents(url: config.serverURL, resolvingAgainstBaseURL: false)
+-        guard components != nil else { return nil }
+-        let scheme = components!.scheme?.lowercased()
+-        switch scheme {
+-        case "http":  components!.scheme = "ws"
+-        case "https": components!.scheme = "wss"
+-        case "ws", "wss": break
+-        default: return nil
+-        }
+-        components!.path = "/ws"
+-        return components!.url
+-    }
+-
+-    private func webSocketURL(_ url: URL, addingToken token: String) throws -> URL {
+-        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+-            throw T3Error.invalidServerURL
+-        }
+-        components.queryItems = (components.queryItems ?? [])
+-            .filter { $0.name != "wsToken" } + [URLQueryItem(name: "wsToken", value: token)]
+-        guard let result = components.url else {
+-            throw T3Error.invalidServerURL
+-        }
+-        return result
+     }
+ 
+     private func formatConnectionError(_ error: Error) -> String {
+--- a/T3 Code/T3 Code/Features/Thread/ThreadView.swift
++++ b/T3 Code/T3 Code/Features/Thread/ThreadView.swift
+@@ -971,6 +971,7 @@
+         switch thread.runtimeMode {
+         case .approvalRequired: "逐项审批"
+         case .autoAcceptEdits: "自动编辑"
++        case .automatic: "自动"
+         case .fullAccess: "完全访问"
+         }
+     }
+@@ -979,6 +980,7 @@
+         switch thread.runtimeMode {
+         case .approvalRequired: T3Color.warning
+         case .autoAcceptEdits: T3Color.primary
++        case .automatic: T3Color.primary
+         case .fullAccess: T3Color.success
+         }
+     }
+--- a/T3 Code/T3 Code/Features/Threads/NewThreadView.swift
++++ b/T3 Code/T3 Code/Features/Threads/NewThreadView.swift
+@@ -328,6 +328,7 @@
+                         Picker("权限", selection: $runtimeMode) {
+                             Text("逐项审批").tag(RuntimeMode.approvalRequired)
+                             Text("自动编辑").tag(RuntimeMode.autoAcceptEdits)
++                            Text("自动").tag(RuntimeMode.automatic)
+                             Text("完全访问").tag(RuntimeMode.fullAccess)
+                         }
+                         .pickerStyle(.segmented)
+--- a/T3 Code/T3 Code.xcodeproj/project.pbxproj
++++ b/T3 Code/T3 Code.xcodeproj/project.pbxproj
+@@ -253,7 +253,7 @@
+ 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+ 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+ 				CODE_SIGN_STYLE = Automatic;
+-				CURRENT_PROJECT_VERSION = 2;
++				CURRENT_PROJECT_VERSION = 3;
+ 				DEVELOPMENT_TEAM = 6D56G8D849;
+ 				ENABLE_PREVIEWS = YES;
+ 				GENERATE_INFOPLIST_FILE = NO;
+@@ -264,7 +264,7 @@
+ 					"$(inherited)",
+ 					"@executable_path/Frameworks",
+ 				);
+-				MARKETING_VERSION = 1.0.0;
++				MARKETING_VERSION = 1.0.1;
+ 				PRODUCT_BUNDLE_IDENTIFIER = "com.belweave.T3-Code";
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+@@ -282,7 +282,7 @@
+ 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+ 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+ 				CODE_SIGN_STYLE = Automatic;
+-				CURRENT_PROJECT_VERSION = 2;
++				CURRENT_PROJECT_VERSION = 3;
+ 				DEVELOPMENT_TEAM = 6D56G8D849;
+ 				ENABLE_PREVIEWS = YES;
+ 				GENERATE_INFOPLIST_FILE = NO;
+@@ -293,7 +293,7 @@
+ 					"$(inherited)",
+ 					"@executable_path/Frameworks",
+ 				);
+-				MARKETING_VERSION = 1.0.0;
++				MARKETING_VERSION = 1.0.1;
+ 				PRODUCT_BUNDLE_IDENTIFIER = "com.belweave.T3-Code";
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
