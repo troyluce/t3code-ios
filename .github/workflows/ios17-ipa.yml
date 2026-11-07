@@ -1,4 +1,4 @@
-name: 修复 iOS 配对 404 并构建中文版 IPA
+name: 修复 iOS 发送服务器错误并构建中文版 IPA
 
 on:
   workflow_dispatch:
@@ -17,216 +17,109 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: 准备配对与协议回归测试
+      - name: 准备发送回归测试
         run: |
           mkdir -p build dist tests
-          cat > tests/PairingRegression.swift <<'SWIFT'
-          import Foundation
-
-          enum T3Error: LocalizedError {
-              case pairingFailed(String), invalidServerURL
-              var errorDescription: String? {
-                  switch self {
-                  case .pairingFailed(let message): return message
-                  case .invalidServerURL: return "服务器地址无效"
-                  }
-              }
-          }
-
-          final class PairingStub: URLProtocol, @unchecked Sendable {
-              nonisolated(unsafe) static var legacy = false
-              nonisolated(unsafe) static var requests: [String] = []
-              override class func canInit(with request: URLRequest) -> Bool { true }
-              override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-              override func startLoading() {
-                  let path = request.url!.path
-                  Self.requests.append(path)
-                  var status = 404
-                  var json: [String: Any] = ["error": "route_not_found"]
-                  if path == "/oauth/token" && !Self.legacy {
-                      let body = bodyData()
-                      let form = String(data: body, encoding: .utf8) ?? ""
-                      let fields = URLComponents(string: "https://fixture.invalid/?" + form)?.queryItems ?? []
-                      let values = Dictionary(fields.map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { _, rhs in rhs })
-                      precondition(request.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("application/x-www-form-urlencoded") == true)
-                      precondition(values["grant_type"] == "urn:ietf:params:oauth:grant-type:token-exchange")
-                      precondition(values["subject_token"] == "fixture-pairing-code")
-                      precondition(values["subject_token_type"] == "urn:t3:params:oauth:token-type:environment-bootstrap")
-                      precondition(values["requested_token_type"] == "urn:ietf:params:oauth:token-type:access_token")
-                      status = 200
-                      json = ["access_token": "fixture-bearer", "token_type": "Bearer", "expires_in": 3600]
-                  } else if path == "/api/auth/bootstrap/bearer" && Self.legacy {
-                      status = 200
-                      json = ["sessionToken": "fixture-bearer"]
-                  } else if path == "/api/auth/websocket-ticket/rpc" && !Self.legacy {
-                      precondition(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-bearer")
-                      status = 200
-                      json = ["ticket": "fixture-ticket", "expiresAt": "2030-01-01T00:00:00Z"]
-                  } else if path == "/api/auth/ws-token" && Self.legacy {
-                      status = 200
-                      json = ["token": "fixture-ticket"]
-                  }
-                  let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
-                  client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-                  client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: json))
-                  client?.urlProtocolDidFinishLoading(self)
-              }
-              override func stopLoading() {}
-              private func bodyData() -> Data {
-                  if let data = request.httpBody { return data }
-                  guard let stream = request.httpBodyStream else { return Data() }
-                  stream.open()
-                  defer { stream.close() }
-                  var data = Data()
-                  var buffer = [UInt8](repeating: 0, count: 4096)
-                  while stream.hasBytesAvailable {
-                      let count = stream.read(&buffer, maxLength: buffer.count)
-                      if count <= 0 { break }
-                      data.append(contentsOf: buffer.prefix(count))
-                  }
-                  return data
-              }
-          }
-
-          @main
-          struct PairingRegression {
-              static func main() async {
-                  URLProtocol.registerClass(PairingStub.self)
-                  do {
-                      let base = URL(string: "https://fixture.invalid")!
-                      for legacy in [false, true] {
-                          PairingStub.legacy = legacy
-                          PairingStub.requests = []
-                          let result = try await PairingFlow.exchangeToken(serverURL: base, oneTimeToken: "fixture-pairing-code")
-                          precondition(result.bearerToken == "fixture-bearer")
-                          let ticket = try await PairingFlow.issueWebSocketToken(serverURL: base, bearerToken: result.bearerToken)
-                          precondition(ticket.token == "fixture-ticket")
-          #if FIXED_CLIENT
-                          let url = try PairingFlow.webSocketURL(serverURL: base, authorization: ticket, protocolVersion: legacy ? 1 : 2)
-                          let query = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!
-                          precondition(url.scheme == "wss" && url.path == "/ws")
-                          precondition(query.contains { $0.name == (legacy ? "wsToken" : "wsTicket") && $0.value == "fixture-ticket" })
-                          precondition(legacy || query.contains { $0.name == "orchestrationProtocol" && $0.value == "2" })
-          #endif
-                          print("PASS: \(legacy ? "legacy fallback" : "OAuth and WebSocket ticket")")
-                      }
-                      print("PASS: pairing 404 regression")
-                  } catch {
-                      print("FAIL: pairing 404 regression: \(error.localizedDescription)")
-                      exit(1)
-                  }
-              }
-          }
-          SWIFT
-          cat > tests/ProtocolV2Regression.swift <<'SWIFT'
+          cat > tests/SendingRegression.swift <<'SWIFT'
           import Foundation
 
           enum T3Error: Error { case requestFailed(String) }
 
           @main
-          struct ProtocolV2Regression {
+          struct SendingRegression {
               static func main() throws {
-                  let adapter = OrchestrationV2()
-                  let date = "2026-01-01T00:00:00.000Z"
-                  let model: [String: Any] = ["instanceId": "provider-fixture", "model": "model-fixture"]
-                  let project: [String: Any] = ["id": "project-fixture", "title": "Fixture", "workspaceRoot": "/tmp/fixture", "createdAt": date, "updatedAt": date]
-                  let thread: [String: Any] = ["id": "thread-fixture", "projectId": "project-fixture", "title": "Fixture",
-                      "modelSelection": model, "runtimeMode": "full-access", "interactionMode": "default", "createdAt": date,
-                      "updatedAt": date, "status": "running", "latestRunId": "run-fixture", "activeRunId": "run-fixture"]
-                  let shell: [String: Any] = ["kind": "snapshot", "snapshot": ["schemaVersion": 2, "snapshotSequence": 1,
-                      "projects": [project], "threads": [thread], "archivedThreads": []]]
-                  let normalizedShell = try adapter.streamItem(shell, method: "orchestration.subscribeShell", input: [:])!
-                  guard case .snapshot(let decodedShell) = try ShellStreamItem.decode(from: normalizedShell) else { fatalError("Missing shell snapshot") }
-                  precondition(decodedShell.projects.count == 1 && decodedShell.threads.count == 1)
-                  precondition(decodedShell.threads[0].latestTurn?.state == .running)
-                  let enrichment: [String: Any] = ["kind": "snapshot", "resolvedRepositoryIdentityRoots": ["/tmp/fixture"],
-                      "snapshot": ["snapshotSequence": 1, "projects": [project], "threads": [], "archivedThreads": []]]
-                  let enriched = try adapter.streamItem(enrichment, method: "orchestration.subscribeShell", input: [:])!
-                  guard case .snapshot(let enrichedShell) = try ShellStreamItem.decode(from: enriched) else { fatalError("Missing enrichment") }
-                  precondition(enrichedShell.projects.count == 1 && enrichedShell.threads.count == 1)
-                  let completion = try adapter.streamItem(["kind": "synchronized"], method: "orchestration.subscribeShell", input: [:])
-                  precondition(completion == nil)
-                  let update: [String: Any] = ["kind": "thread.updated", "sequence": 2, "thread": thread]
-                  guard case .threadUpserted = try ShellStreamItem.decode(from: adapter.streamItem(update, method: "orchestration.subscribeShell", input: [:])!) else { fatalError("Missing shell update") }
-                  print("PASS: v2 shell snapshot, status, updates and completion marker")
-
-                  let message: [String: Any] = ["id": "message-fixture", "role": "assistant", "text": "Hello", "streaming": true,
-                      "createdAt": date, "updatedAt": date, "runId": "run-fixture", "attachments": []]
-                  let run: [String: Any] = ["id": "run-fixture", "ordinal": 1, "status": "running", "requestedAt": date]
-                  let projection: [String: Any] = ["thread": thread, "runs": [run], "messages": [message], "runtimeRequests": [],
-                      "turnItems": [], "plans": [], "providerSessions": [], "updatedAt": date]
-                  let input: [String: Any] = ["threadId": "thread-fixture"]
-                  let snapshot: [String: Any] = ["kind": "snapshot", "snapshotSequence": 3, "projection": projection]
-                  let normalizedThread = try adapter.streamItem(snapshot, method: "orchestration.subscribeThread", input: input)!
-                  guard case .snapshot(let detail, _) = try ThreadStreamItem.decode(from: normalizedThread) else { fatalError("Missing thread projection") }
-                  precondition(detail.messages.first?.text == "Hello")
-                  precondition(detail.messages.first?.turnId?.rawValue == "run-fixture")
-                  precondition(detail.latestTurn?.state == .running)
-                  var finished = message
-                  finished["text"] = "Hello world"
-                  finished["streaming"] = false
-                  let event: [String: Any] = ["kind": "event", "sequence": 4, "event": ["type": "message.updated", "payload": finished, "occurredAt": date]]
-                  let normalizedEvent = try adapter.streamItem(event, method: "orchestration.subscribeThread", input: input)!
-                  guard case .snapshot(let updated, _) = try ThreadStreamItem.decode(from: normalizedEvent) else { fatalError("Missing message update") }
-                  precondition(updated.messages.count == 1 && updated.messages[0].text == "Hello world" && !updated.messages[0].streaming)
-                  print("PASS: v2 thread projection and streaming message replacement")
-
-                  let command: [String: Any] = ["type": "thread.turn.start", "commandId": "command-fixture", "threadId": "thread-fixture",
-                      "message": ["messageId": "outgoing-fixture", "text": "Fixture prompt", "attachments": []],
-                      "runtimeMode": "full-access", "interactionMode": "default", "modelSelection": model]
-                  let send = try adapter.operations(for: command)
-                  precondition(send.count == 1 && send[0].payload["type"] as? String == "message.dispatch")
-                  precondition(send[0].payload["text"] as? String == "Fixture prompt")
-                  precondition((send[0].payload["dispatchMode"] as? [String: String])?["targetRunId"] == "run-fixture")
-                  var creation = command
-                  creation["bootstrap"] = ["createThread": ["projectId": "project-fixture", "title": "New fixture", "modelSelection": model,
-                      "runtimeMode": "approval-required", "interactionMode": "default"]]
-                  let launch = try adapter.operations(for: creation)
-                  precondition(launch.count == 1 && launch[0].method == "orchestration.launchThread")
-                  precondition((launch[0].payload["workspaceStrategy"] as? [String: String])?["type"] == "root")
-                  for (legacy, modern) in [("thread.approval.respond", "runtime-request.respond"), ("thread.user-input.respond", "runtime-request.respond"), ("thread.session.stop", "thread.stop")] {
-                      let operation = try adapter.operations(for: ["type": legacy, "threadId": "thread-fixture", "commandId": "fixture"])
-                      precondition(operation[0].payload["type"] as? String == modern)
+                  var failures: [String] = []
+                  func check(_ condition: Bool, _ message: String) {
+                      if !condition { failures.append(message); print("FAIL: \(message)") }
                   }
-                  let rename = try adapter.operations(for: ["type": "thread.meta.update", "threadId": "thread-fixture", "title": "Renamed", "commandId": "fixture"])
-                  precondition(rename[0].payload["type"] as? String == "thread.metadata.update")
-                  print("PASS: v2 send, steering, launch, approval, stop and rename commands")
+                  let adapter = OrchestrationV2()
+                  let model: [String: Any] = ["instanceId": "codex", "model": "fixture-model"]
+                  var command: [String: Any] = ["type": "thread.turn.start", "commandId": "fixture-command", "threadId": "fixture-thread",
+                      "message": ["messageId": "fixture-message", "text": "Fixture prompt", "attachments": []],
+                      "modelSelection": model, "runtimeMode": "approval-required", "interactionMode": "default"]
+                  let sends = try adapter.operations(for: command)
+                  let send = sends.last!
+                  check(send.method == "orchestration.dispatchCommand", "existing thread RPC method")
+                  check(send.payload["createdBy"] as? String == "user", "message.dispatch requires createdBy=user in server 0.1.7")
+                  check(send.payload["creationSource"] as? String == "mobile", "message.dispatch requires creationSource=mobile in server 0.1.7")
+                  check((send.payload["dispatchMode"] as? [String: String])?["type"] == "start_immediately", "idle thread starts immediately")
+                  let encoded = try EffectRPCEncoder.encode(.request(id: "1", tag: send.method, payload: send.payload, headers: []))
+                  let request = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+                  check((request["payload"] as? [String: Any])?["createdBy"] as? String == "user", "actor survives RPC encoding")
+                  command["bootstrap"] = ["createThread": ["projectId": "fixture-project", "title": "Fixture", "modelSelection": model,
+                      "runtimeMode": "approval-required", "interactionMode": "default"]]
+                  let launch = try adapter.operations(for: command)[0]
+                  check(launch.method == "orchestration.launchThread", "new thread uses launchThread")
+                  check(launch.payload["creationSource"] as? String == "mobile", "new thread records mobile source")
+                  check((launch.payload["initialMessage"] as? [String: Any])?["text"] as? String == "Fixture prompt", "new thread preserves first message")
+
+                  // Captured from desktop 0.1.7 when the old iOS request lacked createdBy.
+                  let missingKey = "Missing key\n  at [\"createdBy\"]"
+                  let cases: [(String, Any, String?, String)] = [
+                      ("v2 schema defect", [["_tag": "Die", "defect": missingKey]], nil, missingKey),
+                      ("v2 typed failure", [["_tag": "Fail", "error": ["_tag": "OrchestrationV2DispatchCommandError", "message": "Fixture thread not found"]]], "OrchestrationV2DispatchCommandError", "Fixture thread not found"),
+                      ("v2 object defect", [["_tag": "Die", "defect": ["name": "Error", "message": "Fixture provider unavailable"]]], nil, "Fixture provider unavailable"),
+                      ("v2 string failure", [["_tag": "Fail", "error": "Fixture failure"]], nil, "Fixture failure"),
+                      ("v1 typed failure", ["_tag": "Fail", "error": ["_tag": "LegacyError", "message": "Fixture legacy error"]], "LegacyError", "Fixture legacy error"),
+                      ("v1 defect", ["_tag": "Die", "defect": "Fixture legacy defect"], nil, "Fixture legacy defect"),
+                      ("empty failure", [], nil, "服务器错误")
+                  ]
+                  for (label, cause, tag, expected) in cases {
+                      let frame: [String: Any] = ["_tag": "Exit", "requestId": "1", "exit": ["_tag": "Failure", "cause": cause]]
+                      let decoded = try EffectRPCDecoder.decodeFrame(JSONSerialization.data(withJSONObject: frame))
+                      guard case let .exit(id, success, _, errorTag, errorMessage) = decoded[0] else {
+                          failures.append("\(label): missing Exit"); continue
+                      }
+                      check(id == "1" && !success && errorTag == tag && errorMessage == expected, "\(label) preserves server reason")
+                  }
+                  if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--emit-fixtures" {
+                      let fixtures: [[String: Any]] = [["method": send.method, "payload": send.payload], ["method": launch.method, "payload": launch.payload]]
+                      try JSONSerialization.data(withJSONObject: fixtures, options: [.prettyPrinted, .sortedKeys]).write(to: URL(fileURLWithPath: CommandLine.arguments[2]))
+                  }
+                  guard failures.isEmpty else { print("FAIL: \(failures.count) sending regressions"); exit(1) }
+                  print("PASS: existing-thread send and new-thread first-message RPC payloads")
+                  print("PASS: protocol 1 and 2 typed errors and defects retain server reasons")
               }
           }
           SWIFT
-      - name: 在旧客户端复现配对 404
+      - name: 复现旧客户端发送字段缺失与错误信息丢失
         run: |
           swiftc -swift-version 5 -parse-as-library \
-            'T3 Code/T3 Code/Core/Networking/Auth/PairingFlow.swift' \
-            'T3 Code/T3 Code/Core/Models/EnvironmentDescriptor.swift' \
-            'T3 Code/T3 Code/Core/Models/Identifiers.swift' \
-            tests/PairingRegression.swift -o build/auth-before
+            'T3 Code/T3 Code/Core/Networking/EffectRPC.swift' \
+            'T3 Code/T3 Code/Core/Networking/OrchestrationV2.swift' \
+            tests/SendingRegression.swift -o build/send-before
           set +e
-          build/auth-before > build/auth-before.log 2>&1
-          T3_BASELINE_EXIT=$?
+          build/send-before > build/send-before.log 2>&1
+          T3_SEND_BASELINE_EXIT=$?
           set -e
-          cat build/auth-before.log
-          if test "$T3_BASELINE_EXIT" -eq 0; then
-            echo '当前源码已包含配对修复。'
-          elif test "$T3_BASELINE_EXIT" -eq 1; then
-            echo '已复现：旧认证接口返回 404。'
+          cat build/send-before.log
+          if test "$T3_SEND_BASELINE_EXIT" -eq 1; then
+            echo '已复现桌面 0.1.7 消息必填字段缺失和错误原因丢失。'
+          elif test "$T3_SEND_BASELINE_EXIT" -eq 0 && git apply --reverse --check compatibility/send-fix.patch; then
+            echo '发送修复已经应用。'
           else
-            exit "$T3_BASELINE_EXIT"
-          fi
-      - name: 应用认证与第二版会话协议修复
-        run: |
-          if git apply --check compatibility/protocol-v2.patch; then
-            git apply compatibility/protocol-v2.patch
-          elif git apply --reverse --check compatibility/protocol-v2.patch; then
-            echo '兼容性修复已应用。'
-          else
-            echo '修复补丁与当前源码不匹配。'
+            echo '发送回归基线未得到预期结果。'
             exit 1
           fi
-          cp compatibility/protocol-v2.patch dist/connection-fix.patch
-      - name: 验证真实客户端配对请求与协议适配
+      - name: 应用发送协议和错误解析修复
+        run: |
+          if git apply --check compatibility/send-fix.patch; then
+            git apply compatibility/send-fix.patch
+          elif git apply --reverse --check compatibility/send-fix.patch; then
+            echo '发送修复已应用。'
+          else
+            echo '发送补丁与当前源码不匹配。'
+            exit 1
+          fi
+          cp compatibility/send-fix.patch dist/send-fix.patch
+      - name: 验证发送、配对和会话协议
         run: |
           set -o pipefail
+          swiftc -swift-version 5 -parse-as-library \
+            'T3 Code/T3 Code/Core/Networking/EffectRPC.swift' \
+            'T3 Code/T3 Code/Core/Networking/OrchestrationV2.swift' \
+            tests/SendingRegression.swift -o build/send-after
+          build/send-after --emit-fixtures dist/send-rpc-fixtures.json | tee build/send-after.log
           swiftc -swift-version 5 -D FIXED_CLIENT -parse-as-library \
             'T3 Code/T3 Code/Core/Networking/Auth/PairingFlow.swift' \
             'T3 Code/T3 Code/Core/Models/EnvironmentDescriptor.swift' \
@@ -240,7 +133,7 @@ jobs:
           subprocess.run(['swiftc', '-swift-version', '5', '-parse-as-library', *files, 'T3 Code/T3 Code/Core/Networking/OrchestrationV2.swift', 'tests/ProtocolV2Regression.swift', '-o', 'build/protocol-tests'], check=True)
           PYCODE
           build/protocol-tests | tee build/protocol-tests.log
-          cat build/auth-after.log build/protocol-tests.log > dist/regression-results.txt
+          cat build/send-after.log build/auth-after.log build/protocol-tests.log > dist/regression-results.txt
       - name: 编译 iOS 17.0 arm64 应用
         run: |
           set -o pipefail
@@ -267,7 +160,7 @@ jobs:
           info = plistlib.loads((app / 'Info.plist').read_bytes())
           assert info['MinimumOSVersion'] == '17.0'
           assert info['CFBundleIdentifier'] == 'com.belweave.T3-Code'
-          assert info['CFBundleVersion'] == '3'
+          assert info['CFBundleVersion'] == '4'
           assert info['CFBundleDevelopmentRegion'] == 'zh-Hans'
           assert info['CFBundleLocalizations'] == ['zh-Hans']
           assert info['CFBundleDisplayName'] == 'T3 Code 中文'
@@ -288,24 +181,24 @@ jobs:
           Path('dist/build-info.txt').write_text(report)
           print(report)
           PYCODE
-          (cd build/package && ditto -c -k --keepParent Payload ../../dist/T3Code-iOS17-zh-Hans-0.1.7-TrollStore.ipa)
-          unzip -t dist/T3Code-iOS17-zh-Hans-0.1.7-TrollStore.ipa
-          shasum -a 256 dist/T3Code-iOS17-zh-Hans-0.1.7-TrollStore.ipa > dist/SHA256SUMS.txt
-      - name: 提交验证通过的兼容性修复
+          (cd build/package && ditto -c -k --keepParent Payload ../../dist/T3Code-iOS17-zh-Hans-SendFix-v1.0.2-TrollStore.ipa)
+          unzip -t dist/T3Code-iOS17-zh-Hans-SendFix-v1.0.2-TrollStore.ipa
+          shasum -a 256 dist/T3Code-iOS17-zh-Hans-SendFix-v1.0.2-TrollStore.ipa > dist/SHA256SUMS.txt
+      - name: 提交验证通过的发送修复
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -- 'T3 Code' tests
           if ! git diff --cached --quiet; then
-            git commit -m '修复旧配对接口 404，兼容 OAuth、WebSocket 票据和第二版会话协议'
+            git commit -m '补齐移动端消息创建字段并解析协议 2 错误数组，修复发送服务器错误'
             git push origin HEAD:main
           fi
           git rev-parse HEAD > dist/source-commit.txt
-          git archive --format=zip --output=dist/T3Code-Connection-Fix-Source.zip HEAD -- 'T3 Code' tests
-      - name: 上传连接修复版中文版 IPA
+          git archive --format=zip --output=dist/T3Code-Send-Fix-Source.zip HEAD -- 'T3 Code' tests
+      - name: 上传发送修复版中文版 IPA
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: T3Code-iOS17-zh-Hans-ConnectionFix
+          name: T3Code-iOS17-zh-Hans-SendFix
           path: dist/
           if-no-files-found: error
           retention-days: 30
@@ -313,7 +206,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: connection-fix-build-log
+          name: send-fix-build-log
           path: build/*.log
           if-no-files-found: ignore
           retention-days: 7
