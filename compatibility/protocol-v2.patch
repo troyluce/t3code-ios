@@ -267,7 +267,7 @@
      }
 --- /dev/null
 +++ b/T3 Code/T3 Code/Core/Networking/OrchestrationV2.swift
-@@ -0,0 +1,230 @@
+@@ -0,0 +1,241 @@
 +import Foundation
 +
 +/// Adapts protocol 2 records to the app's timeline and command interfaces.
@@ -280,6 +280,7 @@
 +
 +    private var projections: [String: [String: Any]] = [:]
 +    private var shells: [String: [String: Any]] = [:]
++    private var projects: [String: [String: Any]] = [:]
 +
 +    func streamItem(_ value: Any, method: String, input: Any) throws -> Any? {
 +        guard var item = value as? [String: Any], let kind = item["kind"] as? String else { return value }
@@ -287,17 +288,27 @@
 +        if method == "orchestration.subscribeShell" {
 +            if kind == "snapshot", var snapshot = item["snapshot"] as? [String: Any] {
 +                let threads = (snapshot["threads"] as? [[String: Any]] ?? []) + (snapshot["archivedThreads"] as? [[String: Any]] ?? [])
-+                snapshot["threads"] = threads.map { thread in
-+                    if let id = thread["id"] as? String { shells[id] = thread }
-+                    return normalizeShell(thread)
++                if item["resolvedRepositoryIdentityRoots"] == nil {
++                    shells.removeAll()
++                    projects.removeAll()
 +                }
-+                snapshot["updatedAt"] = latestDate(threads, fallback: "1970-01-01T00:00:00Z")
++                for thread in threads { if let id = thread["id"] as? String { shells[id] = thread } }
++                for project in records(snapshot, "projects") { if let id = project["id"] as? String { projects[id] = project } }
++                snapshot["threads"] = shells.values.map(normalizeShell)
++                snapshot["projects"] = projects.values.sorted { ($0["id"] as? String ?? "") < ($1["id"] as? String ?? "") }
++                snapshot["updatedAt"] = latestDate(Array(shells.values), fallback: "1970-01-01T00:00:00Z")
 +                item["snapshot"] = snapshot
 +            } else {
 +                let aliases = ["project.updated": "project-upserted", "project.removed": "project-removed",
 +                               "thread.updated": "thread-upserted", "thread.removed": "thread-removed"]
 +                guard let translated = aliases[kind] else { return nil }
 +                item["kind"] = translated
++                if let project = item["project"] as? [String: Any], let id = project["id"] as? String { projects[id] = project }
++                if kind == "project.removed", let id = item["projectId"] as? String {
++                    projects.removeValue(forKey: id)
++                    shells = shells.filter { $0.value["projectId"] as? String != id }
++                }
++                if kind == "thread.removed", let id = item["threadId"] as? String { shells.removeValue(forKey: id) }
 +                if let thread = item["thread"] as? [String: Any] {
 +                    if let id = thread["id"] as? String { shells[id] = thread }
 +                    item["thread"] = normalizeShell(thread)
