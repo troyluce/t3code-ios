@@ -94,6 +94,7 @@ final class OrchestrationV2 {
                 launch.removeValue(forKey: "worktreePath")
                 launch["commandId"] = value["commandId"]
                 launch["threadId"] = threadId
+                launch["creationSource"] = "mobile"
                 launch["workspaceStrategy"] = ["type": "root"]
                 launch["initialMessage"] = ["messageId": message["messageId"] ?? UUID().uuidString,
                                              "text": message["text"] ?? "", "attachments": message["attachments"] ?? []]
@@ -108,6 +109,7 @@ final class OrchestrationV2 {
                 }
             }
             var dispatch: [String: Any] = ["type": "message.dispatch", "commandId": value["commandId"] ?? UUID().uuidString,
+                "createdBy": "user", "creationSource": "mobile",
                 "threadId": threadId, "messageId": message["messageId"] ?? UUID().uuidString,
                 "text": message["text"] ?? "", "attachments": message["attachments"] ?? []]
             if let model = value["modelSelection"] { dispatch["modelSelection"] = model }

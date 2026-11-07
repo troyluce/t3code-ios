@@ -93,13 +93,9 @@ enum EffectRPCDecoder {
                 return .exit(requestId: id, success: true, value: exit["value"],
                              errorTag: nil, errorMessage: nil)
             } else {
-                let cause = exit["cause"] as? [String: Any] ?? [:]
-                let errorMessage = (cause["error"] as? [String: Any])?["message"] as? String
-                    ?? (cause["defect"] as? String)
-                    ?? "服务器错误"
-                let errorTag = (cause["error"] as? [String: Any])?["_tag"] as? String
+                let failure = failureDetails(exit["cause"])
                 return .exit(requestId: id, success: false, value: nil,
-                             errorTag: errorTag, errorMessage: errorMessage)
+                             errorTag: failure?.tag, errorMessage: failure?.message ?? "服务器错误")
             }
         case "Defect":
             let message = (dict["defect"] as? String) ?? "未知服务器错误"
@@ -110,5 +106,28 @@ enum EffectRPCDecoder {
         default:
             return .unknown(json: any)
         }
+    }
+
+    /// Protocol 2 encodes Effect causes as an array; protocol 1 uses a single cause.
+    private static func failureDetails(_ value: Any?, depth: Int = 0) -> (tag: String?, message: String)? {
+        guard depth < 16 else { return nil }
+        if let reasons = value as? [Any] {
+            for reason in reasons {
+                if let failure = failureDetails(reason, depth: depth + 1) { return failure }
+            }
+            return nil
+        }
+        guard let cause = value as? [String: Any] else { return nil }
+        for field in ["error", "defect"] {
+            if let message = cause[field] as? String, !message.isEmpty { return (nil, message) }
+            if let error = cause[field] as? [String: Any],
+               let message = (error["message"] as? String) ?? (error["detail"] as? String), !message.isEmpty {
+                return (field == "error" ? error["_tag"] as? String : nil, message)
+            }
+        }
+        for field in ["reasons", "left", "right", "cause"] {
+            if let failure = failureDetails(cause[field], depth: depth + 1) { return failure }
+        }
+        return nil
     }
 }
