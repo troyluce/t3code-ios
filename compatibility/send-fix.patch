@@ -1,0 +1,102 @@
+--- a/T3 Code/T3 Code/Core/Networking/EffectRPC.swift
++++ b/T3 Code/T3 Code/Core/Networking/EffectRPC.swift
+@@ -93,13 +93,9 @@
+                 return .exit(requestId: id, success: true, value: exit["value"],
+                              errorTag: nil, errorMessage: nil)
+             } else {
+-                let cause = exit["cause"] as? [String: Any] ?? [:]
+-                let errorMessage = (cause["error"] as? [String: Any])?["message"] as? String
+-                    ?? (cause["defect"] as? String)
+-                    ?? "服务器错误"
+-                let errorTag = (cause["error"] as? [String: Any])?["_tag"] as? String
++                let failure = failureDetails(exit["cause"])
+                 return .exit(requestId: id, success: false, value: nil,
+-                             errorTag: errorTag, errorMessage: errorMessage)
++                             errorTag: failure?.tag, errorMessage: failure?.message ?? "服务器错误")
+             }
+         case "Defect":
+             let message = (dict["defect"] as? String) ?? "未知服务器错误"
+@@ -111,4 +107,27 @@
+             return .unknown(json: any)
+         }
+     }
++
++    /// Protocol 2 encodes Effect causes as an array; protocol 1 uses a single cause.
++    private static func failureDetails(_ value: Any?, depth: Int = 0) -> (tag: String?, message: String)? {
++        guard depth < 16 else { return nil }
++        if let reasons = value as? [Any] {
++            for reason in reasons {
++                if let failure = failureDetails(reason, depth: depth + 1) { return failure }
++            }
++            return nil
++        }
++        guard let cause = value as? [String: Any] else { return nil }
++        for field in ["error", "defect"] {
++            if let message = cause[field] as? String, !message.isEmpty { return (nil, message) }
++            if let error = cause[field] as? [String: Any],
++               let message = (error["message"] as? String) ?? (error["detail"] as? String), !message.isEmpty {
++                return (field == "error" ? error["_tag"] as? String : nil, message)
++            }
++        }
++        for field in ["reasons", "left", "right", "cause"] {
++            if let failure = failureDetails(cause[field], depth: depth + 1) { return failure }
++        }
++        return nil
++    }
+ }
+--- a/T3 Code/T3 Code/Core/Networking/OrchestrationV2.swift
++++ b/T3 Code/T3 Code/Core/Networking/OrchestrationV2.swift
+@@ -94,6 +94,7 @@
+                 launch.removeValue(forKey: "worktreePath")
+                 launch["commandId"] = value["commandId"]
+                 launch["threadId"] = threadId
++                launch["creationSource"] = "mobile"
+                 launch["workspaceStrategy"] = ["type": "root"]
+                 launch["initialMessage"] = ["messageId": message["messageId"] ?? UUID().uuidString,
+                                              "text": message["text"] ?? "", "attachments": message["attachments"] ?? []]
+@@ -108,6 +109,7 @@
+                 }
+             }
+             var dispatch: [String: Any] = ["type": "message.dispatch", "commandId": value["commandId"] ?? UUID().uuidString,
++                "createdBy": "user", "creationSource": "mobile",
+                 "threadId": threadId, "messageId": message["messageId"] ?? UUID().uuidString,
+                 "text": message["text"] ?? "", "attachments": message["attachments"] ?? []]
+             if let model = value["modelSelection"] { dispatch["modelSelection"] = model }
+--- a/T3 Code/T3 Code.xcodeproj/project.pbxproj
++++ b/T3 Code/T3 Code.xcodeproj/project.pbxproj
+@@ -253,7 +253,7 @@
+ 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+ 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+ 				CODE_SIGN_STYLE = Automatic;
+-				CURRENT_PROJECT_VERSION = 3;
++				CURRENT_PROJECT_VERSION = 4;
+ 				DEVELOPMENT_TEAM = 6D56G8D849;
+ 				ENABLE_PREVIEWS = YES;
+ 				GENERATE_INFOPLIST_FILE = NO;
+@@ -264,7 +264,7 @@
+ 					"$(inherited)",
+ 					"@executable_path/Frameworks",
+ 				);
+-				MARKETING_VERSION = 1.0.1;
++				MARKETING_VERSION = 1.0.2;
+ 				PRODUCT_BUNDLE_IDENTIFIER = "com.belweave.T3-Code";
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+@@ -282,7 +282,7 @@
+ 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+ 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+ 				CODE_SIGN_STYLE = Automatic;
+-				CURRENT_PROJECT_VERSION = 3;
++				CURRENT_PROJECT_VERSION = 4;
+ 				DEVELOPMENT_TEAM = 6D56G8D849;
+ 				ENABLE_PREVIEWS = YES;
+ 				GENERATE_INFOPLIST_FILE = NO;
+@@ -293,7 +293,7 @@
+ 					"$(inherited)",
+ 					"@executable_path/Frameworks",
+ 				);
+-				MARKETING_VERSION = 1.0.1;
++				MARKETING_VERSION = 1.0.2;
+ 				PRODUCT_BUNDLE_IDENTIFIER = "com.belweave.T3-Code";
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
