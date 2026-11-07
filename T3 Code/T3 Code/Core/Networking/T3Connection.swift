@@ -8,6 +8,7 @@ actor T3Connection {
     struct Config: Sendable {
         var serverURL: URL
         var bearerToken: String?
+        var orchestrationProtocolVersion: Int = 1
     }
 
     private var config: Config
@@ -78,20 +79,18 @@ actor T3Connection {
         teardownConnection(yieldOffline: false)
         statusContinuation?.yield(.connecting)
 
-        guard var wsURL = makeWebSocketURL() else {
-            statusContinuation?.yield(.error("服务器地址无效"))
-            scheduleReconnect()
-            return false
-        }
-
+        let wsURL: URL
         do {
+            var authorization: PairingFlow.WebSocketToken?
             if let token = config.bearerToken, !token.isEmpty {
                 let issued = try await PairingFlow.issueWebSocketToken(
                     serverURL: config.serverURL,
                     bearerToken: token
                 )
-                wsURL = try webSocketURL(wsURL, addingToken: issued.token)
+                authorization = issued
             }
+            wsURL = try PairingFlow.webSocketURL(serverURL: config.serverURL, authorization: authorization,
+                                                protocolVersion: config.orchestrationProtocolVersion)
         } catch {
             statusContinuation?.yield(.error(formatConnectionError(error)))
             scheduleReconnect()
@@ -232,32 +231,6 @@ actor T3Connection {
 
     private func isCurrentTask(_ candidate: URLSessionWebSocketTask) -> Bool {
         task === candidate
-    }
-
-    private func makeWebSocketURL() -> URL? {
-        var components = URLComponents(url: config.serverURL, resolvingAgainstBaseURL: false)
-        guard components != nil else { return nil }
-        let scheme = components!.scheme?.lowercased()
-        switch scheme {
-        case "http":  components!.scheme = "ws"
-        case "https": components!.scheme = "wss"
-        case "ws", "wss": break
-        default: return nil
-        }
-        components!.path = "/ws"
-        return components!.url
-    }
-
-    private func webSocketURL(_ url: URL, addingToken token: String) throws -> URL {
-        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            throw T3Error.invalidServerURL
-        }
-        components.queryItems = (components.queryItems ?? [])
-            .filter { $0.name != "wsToken" } + [URLQueryItem(name: "wsToken", value: token)]
-        guard let result = components.url else {
-            throw T3Error.invalidServerURL
-        }
-        return result
     }
 
     private func formatConnectionError(_ error: Error) -> String {

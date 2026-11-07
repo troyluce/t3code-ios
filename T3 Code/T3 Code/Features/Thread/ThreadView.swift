@@ -971,6 +971,7 @@ struct ThreadHeaderView: View {
         switch thread.runtimeMode {
         case .approvalRequired: "逐项审批"
         case .autoAcceptEdits: "自动编辑"
+        case .automatic: "自动"
         case .fullAccess: "完全访问"
         }
     }
@@ -979,6 +980,7 @@ struct ThreadHeaderView: View {
         switch thread.runtimeMode {
         case .approvalRequired: T3Color.warning
         case .autoAcceptEdits: T3Color.primary
+        case .automatic: T3Color.primary
         case .fullAccess: T3Color.success
         }
     }

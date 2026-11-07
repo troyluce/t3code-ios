@@ -8,6 +8,8 @@ actor T3Client {
     }
 
     private let connection: T3Connection
+    private let protocolVersion: Int
+    private let version2 = OrchestrationV2()
     private var pendingResponses: [String: CheckedContinuation<Any?, Error>] = [:]
     private var streamSubscribers: [String: (Any) -> Void] = [:]
     private var subscriptionTemplates: [String: SubscriptionTemplate] = [:]
@@ -16,8 +18,9 @@ actor T3Client {
     private(set) var status: T3Connection.ConnectionStatus = .offline
     private var statusListeners: [(T3Connection.ConnectionStatus) -> Void] = []
 
-    init(connection: T3Connection) {
+    init(connection: T3Connection, protocolVersion: Int = 1) {
         self.connection = connection
+        self.protocolVersion = protocolVersion
     }
 
     @discardableResult
@@ -108,7 +111,15 @@ actor T3Client {
         case let .chunk(requestId, values):
             if let listener = streamSubscribers[requestId] {
                 for v in values {
-                    listener(v)
+                    do {
+                        if protocolVersion >= 2, let template = subscriptionTemplates[requestId] {
+                            if let adapted = try version2.streamItem(v, method: template.method, input: template.payload) {
+                                listener(adapted)
+                            }
+                        } else { listener(v) }
+                    } catch {
+                        await update(status: .error(ChineseLocalization.errorDescription(error)))
+                    }
                 }
                 try? await connection.send([.ack(requestId: requestId)])
             }
@@ -127,6 +138,28 @@ actor T3Client {
     }
 
     func request(method: String, payload: Any) async throws -> Any? {
+        if protocolVersion >= 2, method == "orchestration.dispatchCommand", var command = payload as? [String: Any] {
+            if var message = command["message"] as? [String: Any],
+               let attachments = message["attachments"] as? [[String: Any]], !attachments.isEmpty {
+                let upload: [String: Any] = ["threadId": command["threadId"] ?? "",
+                    "messageId": message["messageId"] ?? "", "attachments": attachments]
+                guard let result = try await requestRaw(method: "assets.persistChatAttachments", payload: upload) as? [String: Any],
+                      let stored = result["attachments"] as? [[String: Any]] else {
+                    throw T3Error.requestFailed("上传图片时服务器返回了无效响应。")
+                }
+                message["attachments"] = stored
+                command["message"] = message
+            }
+            var result: Any?
+            for operation in try version2.operations(for: command) {
+                result = try await requestRaw(method: operation.method, payload: operation.payload)
+            }
+            return result
+        }
+        return try await requestRaw(method: method, payload: payload)
+    }
+
+    private func requestRaw(method: String, payload: Any) async throws -> Any? {
         let id = await connection.nextRequestId()
         return try await withCheckedThrowingContinuation { continuation in
             pendingResponses[id] = continuation

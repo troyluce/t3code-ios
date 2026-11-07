@@ -16,12 +16,16 @@ enum ApprovalRequestKind: String, Codable, Sendable {
     case command
     case fileRead = "file-read"
     case fileChange = "file-change"
+    case permission
+    case elicitation = "mcp-elicitation"
 
     var displayLabel: String {
         switch self {
         case .command: "执行命令"
         case .fileRead: "读取文件"
         case .fileChange: "修改文件"
+        case .permission: "权限请求"
+        case .elicitation: "信息请求"
         }
     }
 
@@ -30,6 +34,8 @@ enum ApprovalRequestKind: String, Codable, Sendable {
         case .command: "terminal"
         case .fileRead: "doc.text.magnifyingglass"
         case .fileChange: "pencil.and.outline"
+        case .permission: "lock.shield"
+        case .elicitation: "questionmark.bubble"
         }
     }
 }

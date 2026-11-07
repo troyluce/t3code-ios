@@ -328,6 +328,7 @@ struct NewThreadView: View {
                         Picker("权限", selection: $runtimeMode) {
                             Text("逐项审批").tag(RuntimeMode.approvalRequired)
                             Text("自动编辑").tag(RuntimeMode.autoAcceptEdits)
+                            Text("自动").tag(RuntimeMode.automatic)
                             Text("完全访问").tag(RuntimeMode.fullAccess)
                         }
                         .pickerStyle(.segmented)

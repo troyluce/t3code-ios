@@ -3,6 +3,7 @@ import Foundation
 enum RuntimeMode: String, Codable, Sendable {
     case approvalRequired = "approval-required"
     case autoAcceptEdits  = "auto-accept-edits"
+    case automatic       = "auto"
     case fullAccess       = "full-access"
 }
 

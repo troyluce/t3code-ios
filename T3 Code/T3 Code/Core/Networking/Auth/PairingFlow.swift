@@ -7,82 +7,109 @@ struct PairingResult: Sendable {
 enum PairingFlow {
     struct WebSocketToken: Sendable {
         let token: String
+        let parameterName: String
     }
 
     static func fetchEnvironment(serverURL: URL) async throws -> EnvironmentDescriptor {
-        let url = serverBaseURL(from: serverURL).appendingPathComponent(".well-known/t3/environment")
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
+        var request = URLRequest(url: serverBaseURL(from: serverURL).appendingPathComponent(".well-known/t3/environment"))
         request.timeoutInterval = 10
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw T3Error.pairingFailed("服务器没有响应")
-        }
-        guard http.statusCode == 200 else {
-            throw T3Error.pairingFailed(
-                "获取服务器环境失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
-            )
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw T3Error.pairingFailed("无法读取 T3 Code 服务器环境信息。")
         }
         guard let descriptor = EnvironmentDescriptor.decodeLenient(data) else {
-            throw T3Error.pairingFailed("服务器环境信息无效")
+            throw T3Error.pairingFailed("此地址未返回有效的 T3 Code 服务器信息。")
         }
         return descriptor
     }
 
     static func exchangeToken(serverURL: URL, oneTimeToken: String) async throws -> PairingResult {
-        let url = serverBaseURL(from: serverURL).appendingPathComponent("api/auth/bootstrap/bearer")
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: serverBaseURL(from: serverURL).appendingPathComponent("oauth/token"))
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 15
-        let body: [String: Any] = ["credential": oneTimeToken]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
+        var form = URLComponents()
+        form.queryItems = [
+            URLQueryItem(name: "grant_type", value: "urn:ietf:params:oauth:grant-type:token-exchange"),
+            URLQueryItem(name: "subject_token", value: oneTimeToken),
+            URLQueryItem(name: "subject_token_type", value: "urn:t3:params:oauth:token-type:environment-bootstrap"),
+            URLQueryItem(name: "requested_token_type", value: "urn:ietf:params:oauth:token-type:access_token"),
+            URLQueryItem(name: "client_label", value: "T3 Code iOS 中文版"),
+            URLQueryItem(name: "client_device_type", value: "mobile"),
+            URLQueryItem(name: "client_os", value: "iOS")
+        ]
+        request.httpBody = form.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B").data(using: .utf8)
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw T3Error.pairingFailed("服务器没有响应")
+        guard let http = response as? HTTPURLResponse else { throw T3Error.pairingFailed("服务器没有响应") }
+        if http.statusCode == 404 || http.statusCode == 405 {
+            return try await exchangeLegacyToken(serverURL: serverURL, oneTimeToken: oneTimeToken)
         }
         if http.statusCode == 401 || http.statusCode == 403 {
-            throw T3Error.pairingFailed("配对令牌被拒绝：\(errorMessage(from: data))")
+            throw T3Error.pairingFailed("配对链接已失效或已被使用，请在桌面端重新生成。")
         }
         guard (200...299).contains(http.statusCode) else {
-            throw T3Error.pairingFailed(
-                "配对失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
-            )
+            throw T3Error.pairingFailed("配对失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))")
         }
-
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if let token = (json["sessionToken"] ?? json["token"] ?? json["bearer"]) as? String,
-               !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return PairingResult(bearerToken: token)
-            }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let token = json["access_token"] as? String, !token.isEmpty,
+              (json["token_type"] as? String)?.lowercased() == "bearer" else {
+            throw T3Error.pairingFailed("服务器未返回有效的 Bearer 登录令牌。")
         }
-
-        throw T3Error.pairingFailed("配对响应中缺少登录令牌")
+        return PairingResult(bearerToken: token)
     }
 
     static func issueWebSocketToken(serverURL: URL, bearerToken: String) async throws -> WebSocketToken {
-        let url = serverBaseURL(from: serverURL).appendingPathComponent("api/auth/ws-token")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 10
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw T3Error.pairingFailed("服务器没有响应")
+        for endpoint in ["api/auth/websocket-ticket/rpc", "api/auth/websocket-ticket", "api/auth/ws-token"] {
+            var request = URLRequest(url: serverBaseURL(from: serverURL).appendingPathComponent(endpoint))
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+            request.timeoutInterval = 10
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else { throw T3Error.pairingFailed("服务器没有响应") }
+            if http.statusCode == 404 || http.statusCode == 405 { continue }
+            guard (200...299).contains(http.statusCode) else {
+                throw T3Error.pairingFailed("获取 WebSocket 票据失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))")
+            }
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let token = (json["ticket"] ?? json["token"]) as? String, !token.isEmpty else {
+                throw T3Error.pairingFailed("WebSocket 票据响应无效")
+            }
+            return WebSocketToken(token: token, parameterName: endpoint.hasSuffix("ws-token") ? "wsToken" : "wsTicket")
         }
-        guard (200...299).contains(http.statusCode) else {
-            throw T3Error.pairingFailed(
-                "获取 WebSocket 令牌失败（状态码 \(http.statusCode)）：\(errorMessage(from: data))"
-            )
+        throw T3Error.pairingFailed("服务器未提供兼容的 WebSocket 认证接口，请检查桌面端版本。")
+    }
+
+    static func webSocketURL(serverURL: URL, authorization: WebSocketToken?, protocolVersion: Int) throws -> URL {
+        guard var components = URLComponents(url: serverBaseURL(from: serverURL), resolvingAgainstBaseURL: false) else { throw T3Error.invalidServerURL }
+        switch components.scheme?.lowercased() {
+        case "https", "wss": components.scheme = "wss"
+        case "http", "ws": components.scheme = "ws"
+        default: throw T3Error.invalidServerURL
+        }
+        components.path = "/ws"
+        var items: [URLQueryItem] = []
+        if protocolVersion >= 2 { items.append(URLQueryItem(name: "orchestrationProtocol", value: String(protocolVersion))) }
+        if let authorization { items.append(URLQueryItem(name: authorization.parameterName, value: authorization.token)) }
+        components.queryItems = items.isEmpty ? nil : items
+        guard let url = components.url else { throw T3Error.invalidServerURL }
+        return url
+    }
+
+    private static func exchangeLegacyToken(serverURL: URL, oneTimeToken: String) async throws -> PairingResult {
+        var request = URLRequest(url: serverBaseURL(from: serverURL).appendingPathComponent("api/auth/bootstrap/bearer"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["credential": oneTimeToken])
+        request.timeoutInterval = 15
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw T3Error.pairingFailed("旧版配对接口不可用，请检查桌面端版本并重新生成配对链接。")
         }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let token = json["token"] as? String,
-              !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw T3Error.pairingFailed("WebSocket 令牌响应无效")
+              let token = (json["sessionToken"] ?? json["token"] ?? json["bearer"]) as? String, !token.isEmpty else {
+            throw T3Error.pairingFailed("配对响应中缺少登录令牌")
         }
-        return WebSocketToken(token: token)
+        return PairingResult(bearerToken: token)
     }
 
     static func parsePairingURL(_ raw: String) -> (serverURL: URL, token: String)? {
@@ -135,14 +162,14 @@ enum PairingFlow {
 
     private static func errorMessage(from data: Data) -> String {
         if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let message = json["error"] as? String,
+           let message = (json["error_description"] ?? json["message"] ?? json["reason"] ?? json["error"]) as? String,
            !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return message
+            return String(message.prefix(300))
         }
         if let text = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
            !text.isEmpty {
-            return text
+            return String(text.prefix(300))
         }
         return "响应为空"
     }

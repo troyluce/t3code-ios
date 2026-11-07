@@ -5,6 +5,8 @@ struct EnvironmentDescriptor: Codable, Sendable {
     let bootstrapMethods: [String]
     let sessionMethods: [String]
     let sessionCookieName: String?
+    let serverVersion: String?
+    let orchestrationProtocolVersion: Int?
 
     static func decodeLenient(_ data: Data) -> EnvironmentDescriptor? {
         guard let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
@@ -12,10 +14,13 @@ struct EnvironmentDescriptor: Codable, Sendable {
         let bootstrap = (raw["bootstrapMethods"] as? [String]) ?? []
         let session = (raw["sessionMethods"] as? [String]) ?? []
         let cookieName = raw["sessionCookieName"] as? String
+        guard raw["serverVersion"] is String || raw["policy"] is String else { return nil }
         return EnvironmentDescriptor(policy: policy,
                                      bootstrapMethods: bootstrap,
                                      sessionMethods: session,
-                                     sessionCookieName: cookieName)
+                                     sessionCookieName: cookieName,
+                                     serverVersion: raw["serverVersion"] as? String,
+                                     orchestrationProtocolVersion: raw["orchestrationProtocolVersion"] as? Int)
     }
 }
 

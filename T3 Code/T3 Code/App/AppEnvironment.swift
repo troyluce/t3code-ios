@@ -143,8 +143,21 @@ final class AppEnvironment {
         if let existing = client {
             await existing.stop()
         }
-        let conn = T3Connection(config: .init(serverURL: serverURL, bearerToken: bearerToken))
-        let cli = T3Client(connection: conn)
+        let protocolVersion: Int
+        do {
+            let descriptor = try await PairingFlow.fetchEnvironment(serverURL: serverURL)
+            protocolVersion = descriptor.orchestrationProtocolVersion ?? 1
+            guard (1...2).contains(protocolVersion) else {
+                connectionStatus = .error("服务器会话协议版本为 \(protocolVersion)，请更新 iOS 客户端。")
+                return
+            }
+        } catch {
+            connectionStatus = .error(ChineseLocalization.errorDescription(error))
+            return
+        }
+        let conn = T3Connection(config: .init(serverURL: serverURL, bearerToken: bearerToken,
+                                             orchestrationProtocolVersion: protocolVersion))
+        let cli = T3Client(connection: conn, protocolVersion: protocolVersion)
         connection = conn
         client = cli
 
